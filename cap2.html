@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cap 02 · SOLID · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="solid">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Capítulo 02</div>
+          <h2 class="ch-h2">Principios<br><span class="ac-r">SOLID</span></h2>
+          <p class="ch-lead">Los cinco principios que convierten código que funciona en código que perdura.</p>
+        </div>
+        <div class="ch-badge">20 puntos</div>
+      </div>
+
+      <div class="solid-grid">
+        <div class="solid-card" data-l="S" style="--card-c:var(--r)">
+          <div class="sc-letter">S</div>
+          <div class="sc-name">Single Responsibility</div>
+          <div class="sc-desc">Una clase, una razón para cambiar.</div>
+        </div>
+        <div class="solid-card" data-l="O" style="--card-c:var(--y)">
+          <div class="sc-letter">O</div>
+          <div class="sc-name">Open / Closed</div>
+          <div class="sc-desc">Abierto a extensión, cerrado a modificación.</div>
+        </div>
+        <div class="solid-card" data-l="L" style="--card-c:var(--g)">
+          <div class="sc-letter">L</div>
+          <div class="sc-name">Liskov Substitution</div>
+          <div class="sc-desc">Las subclases sustituyen a su padre sin romper nada.</div>
+        </div>
+        <div class="solid-card" data-l="I" style="--card-c:var(--b)">
+          <div class="sc-letter">I</div>
+          <div class="sc-name">Interface Segregation</div>
+          <div class="sc-desc">Interfaces pequeñas y específicas.</div>
+        </div>
+        <div class="solid-card" data-l="D" style="--card-c:var(--p)">
+          <div class="sc-letter">D</div>
+          <div class="sc-name">Dependency Inversion</div>
+          <div class="sc-desc">Depende de abstracciones, no de implementaciones.</div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">S — Single Responsibility en Laravel</h3>
+      <div class="tabs">
+        <div class="tab-bar">
+          <button class="tab-btn on" onclick="tab(this,'srp-bad')">❌ Violación SRP</button>
+          <button class="tab-btn" onclick="tab(this,'srp-good')">✅ SRP aplicado</button>
+        </div>
+        <div class="tab-pane on" id="srp-bad">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">OrderController.php — 4 responsabilidades</span>
+            </div>
+            <pre><span class="kw">class</span> <span class="cl">OrderController</span> <span class="kw">extends</span> <span class="cl">Controller</span>
+{
+    <span class="kw">public function</span> <span class="fn">store</span>(<span class="cl">Request</span> <span class="pr">$request</span>)
+    {
+        <span class="cm">// ① Validación (debería ser un Form Request)</span>
+        <span class="kw">if</span> (empty(<span class="pr">$request</span>->items)) {
+            <span class="kw">return</span> <span class="fn">response</span>()-><span class="fn">json</span>([<span class="str">'error'</span> => <span class="str">'Sin items'</span>], <span class="nm">422</span>);
+        }
+        <span class="cm">// ② Lógica de negocio (debería ser un Use Case)</span>
+        <span class="pr">$total</span> = <span class="fn">array_sum</span>(<span class="fn">array_column</span>(<span class="pr">$request</span>->items, <span class="str">'price'</span>));
+        <span class="kw">if</span> (<span class="pr">$request</span>->coupon === <span class="str">'VIP20'</span>) <span class="pr">$total</span> *= <span class="nm">0.8</span>;
+        <span class="cm">// ③ Persistencia (debería ser un Repository)</span>
+        <span class="pr">$order</span> = <span class="cl">Order</span>::<span class="fn">create</span>([<span class="str">'total'</span> => <span class="pr">$total</span>, <span class="str">'user_id'</span> => <span class="fn">auth</span>()->id()]);
+        <span class="cm">// ④ Notificación (debería ser un NotificationService)</span>
+        <span class="cl">Mail</span>::<span class="fn">to</span>(<span class="fn">auth</span>()-><span class="fn">user</span>()->email)-><span class="fn">send</span>(<span class="cl">OrderConfirmed</span>::<span class="fn">create</span>(<span class="pr">$order</span>));
+        <span class="kw">return</span> <span class="fn">response</span>()-><span class="fn">json</span>(<span class="pr">$order</span>, <span class="nm">201</span>);
+    }
+}</pre>
+          </div>
+        </div>
+        <div class="tab-pane" id="srp-good">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">OrderController.php — solo HTTP</span>
+            </div>
+            <pre><span class="kw">class</span> <span class="cl">OrderController</span> <span class="kw">extends</span> <span class="cl">Controller</span>
+{
+    <span class="kw">public function</span> <span class="fn">store</span>(
+        <span class="cl">StoreOrderRequest</span> <span class="pr">$request</span>,    <span class="cm">// ① valida</span>
+        <span class="cl">PlaceOrderAction</span>  <span class="pr">$action</span>,
+    ) {
+        <span class="pr">$order</span> = <span class="pr">$action</span>-><span class="fn">execute</span>(
+            <span class="cl">PlaceOrderDTO</span>::<span class="fn">fromRequest</span>(<span class="pr">$request</span>)  <span class="cm">// ② + ③ + ④ encapsulados</span>
+        );
+        <span class="kw">return</span> <span class="cl">OrderResource</span>::<span class="fn">create</span>(<span class="pr">$order</span>);  <span class="cm">// ⑤ formatea</span>
+    }
+}
+<span class="cm">// Cada clase: UNA razón para cambiar</span>
+<span class="cm">// StoreOrderRequest → reglas de validación</span>
+<span class="cm">// PlaceOrderAction  → lógica de negocio</span>
+<span class="cm">// OrderRepository   → persistencia</span>
+<span class="cm">// OrderNotifier     → proveedor email</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">D — Dependency Inversion</h3>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">DIP completo — interfaz, implementación y wiring</span>
+        </div>
+        <pre><span class="cm">// ① Abstracción — vive en el Dominio (cero deps de Laravel)</span>
+<span class="kw">interface</span> <span class="cl">OrderRepository</span>
+{
+    <span class="kw">public function</span> <span class="fn">findById</span>(<span class="cl">OrderId</span> <span class="pr">$id</span>): ?<span class="cl">Order</span>;
+    <span class="kw">public function</span> <span class="fn">save</span>(<span class="cl">Order</span> <span class="pr">$order</span>): <span class="ph">void</span>;
+}
+
+<span class="cm">// ② Implementación concreta — vive en Infraestructura</span>
+<span class="kw">final class</span> <span class="cl">EloquentOrderRepository</span> <span class="kw">implements</span> <span class="cl">OrderRepository</span>
+{
+    <span class="kw">public function</span> <span class="fn">findById</span>(<span class="cl">OrderId</span> <span class="pr">$id</span>): ?<span class="cl">Order</span>
+    {
+        <span class="pr">$model</span> = <span class="cl">OrderModel</span>::<span class="fn">find</span>(<span class="pr">$id</span>-><span class="fn">value</span>());
+        <span class="kw">return</span> <span class="pr">$model</span> ? <span class="cl">OrderMapper</span>::<span class="fn">toDomain</span>(<span class="pr">$model</span>) : <span class="kw">null</span>;
+    }
+    <span class="kw">public function</span> <span class="fn">save</span>(<span class="cl">Order</span> <span class="pr">$order</span>): <span class="ph">void</span>
+    {
+        <span class="cl">OrderModel</span>::<span class="fn">updateOrCreate</span>(
+            [<span class="str">'id'</span> => <span class="pr">$order</span>-><span class="pr">id</span>-><span class="fn">value</span>()],
+            <span class="cl">OrderMapper</span>::<span class="fn">toPersistence</span>(<span class="pr">$order</span>)
+        );
+    }
+}
+
+<span class="cm">// ③ Wiring — AppServiceProvider.php</span>
+<span class="kw">$this</span>-><span class="fn">app</span>-><span class="fn">bind</span>(<span class="cl">OrderRepository</span>::<span class="kw">class</span>, <span class="cl">EloquentOrderRepository</span>::<span class="kw">class</span>);
+<span class="cm">// En tests: swap sin tocar nada más</span>
+<span class="cm">// $this->app->bind(OrderRepository::class, InMemoryOrderRepository::class);</span></pre>
+      </div>
+
+      <!-- EX 2 — CARDS -->
+      <div class="ex-wrap" id="ex2">
+        <div class="ex-head"><span class="ex-tag">Ejercicio 2</span><span class="ex-title-text">DIP — Identifica el rol
+            de cada pieza</span><span class="ex-pts">20 pts</span></div>
+        <div class="ex-body">
+          <div class="ex-desc">Haz clic en el <strong>rol correcto</strong> de cada bloque de código dentro del patrón
+            Dependency Inversion.</div>
+          <div class="ex2-card-grid" id="ex2cards">
+
+            <div class="ex2-card" data-id="c1" data-ans="abstraction">
+              <div class="code-block" style="margin:0;border:none">
+                <div class="code-bar" style="padding:6px 12px">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div><span class="code-fname" style="font-size:10px">OrderRepository.php</span>
+                </div>
+                <pre style="padding:14px;font-size:11px;line-height:1.7"><span class="kw">interface</span> <span class="cl">OrderRepository</span>
+{
+  <span class="kw">public function</span> <span class="fn">findById</span>(
+    <span class="cl">OrderId</span> <span class="pr">$id</span>): ?<span class="cl">Order</span>;
+  <span class="kw">public function</span> <span class="fn">save</span>(
+    <span class="cl">Order</span> <span class="pr">$order</span>): <span class="ph">void</span>;
+}</pre>
+              </div>
+              <div class="ex2-opts">
+                <button class="opt-btn" onclick="pickCard2('c1',this,'abstraction')">Puerto / Abstracción</button>
+                <button class="opt-btn" onclick="pickCard2('c1',this,'impl')">Implementación</button>
+                <button class="opt-btn" onclick="pickCard2('c1',this,'wiring')">Wiring</button>
+                <button class="opt-btn" onclick="pickCard2('c1',this,'consumer')">Consumidor</button>
+              </div>
+            </div>
+
+            <div class="ex2-card" data-id="c2" data-ans="impl">
+              <div class="code-block" style="margin:0;border:none">
+                <div class="code-bar" style="padding:6px 12px">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div><span class="code-fname"
+                    style="font-size:10px">EloquentOrderRepository.php</span>
+                </div>
+                <pre style="padding:14px;font-size:11px;line-height:1.7"><span class="kw">final class</span> <span class="cl">EloquentOrderRepo</span>
+  <span class="kw">implements</span> <span class="cl">OrderRepository</span>
+{
+  <span class="kw">public function</span> <span class="fn">findById</span>(
+    <span class="cl">OrderId</span> <span class="pr">$id</span>): ?<span class="cl">Order</span>
+  { <span class="cm">/* Eloquent */</span> }
+}</pre>
+              </div>
+              <div class="ex2-opts">
+                <button class="opt-btn" onclick="pickCard2('c2',this,'abstraction')">Puerto / Abstracción</button>
+                <button class="opt-btn" onclick="pickCard2('c2',this,'impl')">Implementación</button>
+                <button class="opt-btn" onclick="pickCard2('c2',this,'wiring')">Wiring</button>
+                <button class="opt-btn" onclick="pickCard2('c2',this,'consumer')">Consumidor</button>
+              </div>
+            </div>
+
+            <div class="ex2-card" data-id="c3" data-ans="wiring">
+              <div class="code-block" style="margin:0;border:none">
+                <div class="code-bar" style="padding:6px 12px">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div><span class="code-fname" style="font-size:10px">AppServiceProvider.php</span>
+                </div>
+                <pre style="padding:14px;font-size:11px;line-height:1.7"><span class="kw">public function</span> <span class="fn">register</span>(): <span class="ph">void</span>
+{
+  <span class="kw">$this</span>-><span class="fn">app</span>-><span class="fn">bind</span>(
+    <span class="cl">OrderRepository</span>::<span class="kw">class</span>,
+    <span class="cl">EloquentOrderRepo</span>::<span class="kw">class</span>,
+  );
+}</pre>
+              </div>
+              <div class="ex2-opts">
+                <button class="opt-btn" onclick="pickCard2('c3',this,'abstraction')">Puerto / Abstracción</button>
+                <button class="opt-btn" onclick="pickCard2('c3',this,'impl')">Implementación</button>
+                <button class="opt-btn" onclick="pickCard2('c3',this,'wiring')">Wiring</button>
+                <button class="opt-btn" onclick="pickCard2('c3',this,'consumer')">Consumidor</button>
+              </div>
+            </div>
+
+            <div class="ex2-card" data-id="c4" data-ans="consumer">
+              <div class="code-block" style="margin:0;border:none">
+                <div class="code-bar" style="padding:6px 12px">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div><span class="code-fname" style="font-size:10px">PlaceOrderHandler.php</span>
+                </div>
+                <pre style="padding:14px;font-size:11px;line-height:1.7"><span class="kw">final class</span> <span class="cl">PlaceOrderHandler</span>
+{
+  <span class="kw">public function</span> <span class="fn">__construct</span>(
+    <span class="kw">private readonly</span>
+    <span class="cl">OrderRepository</span> <span class="pr">$orders</span>
+    <span class="cm">// depende del interface</span>
+  ) {}
+}</pre>
+              </div>
+              <div class="ex2-opts">
+                <button class="opt-btn" onclick="pickCard2('c4',this,'abstraction')">Puerto / Abstracción</button>
+                <button class="opt-btn" onclick="pickCard2('c4',this,'impl')">Implementación</button>
+                <button class="opt-btn" onclick="pickCard2('c4',this,'wiring')">Wiring</button>
+                <button class="opt-btn" onclick="pickCard2('c4',this,'consumer')">Consumidor</button>
+              </div>
+            </div>
+
+          </div>
+          <div class="ex-actions">
+            <button class="btn-check" onclick="checkCards2()">Comprobar</button>
+            <button class="btn-reset" onclick="resetCards2()">Reiniciar</button>
+          </div>
+          <div class="ex-fb" id="ex2fb"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="cap1.html">← Cap 01 · Clean Code</a><a class="pager-btn" href="cap3.html">Cap 03 · Hexagonal →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+// ════ EX2 — card roles ════
+    const card2sel = {};
+    function pickCard2(cardId, btn, role) {
+      const card = document.querySelector(`[data-id="${cardId}"]`);
+      if (card.classList.contains('ok-card') || card.classList.contains('bad-card')) return;
+      card.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
+      card2sel[cardId] = role;
+    }
+    function checkCards2() {
+      let ok = 0, total = 4;
+      document.querySelectorAll('#ex2cards .ex2-card').forEach(card => {
+        const id = card.dataset.id, ans = card.dataset.ans, sel = card2sel[id];
+        card.querySelectorAll('.opt-btn').forEach(b => {
+          const onclick = b.getAttribute('onclick'); const role = onclick.match(/'([^']+)'\)$/)?.[1];
+          if (role === ans) b.classList.add('ok');
+          else if (role === sel && sel !== ans) b.classList.add('bad');
+        });
+        card.classList.toggle('ok-card', sel === ans);
+        card.classList.toggle('bad-card', sel !== ans && sel !== undefined);
+        if (sel === ans) ok++;
+      });
+      const fb = document.getElementById('ex2fb');
+      if (ok === total) { fb.textContent = '✓ ¡Perfecto! Entiendes perfectamente el rol de cada pieza en DIP.'; fb.className = 'ex-fb show pass'; award(20, 'ex2'); }
+      else { fb.textContent = `✗ ${ok}/${total}. Interface=Puerto, Clase concreta=Implementación, ServiceProvider=Wiring, Handler=Consumidor.`; fb.className = 'ex-fb show fail'; }
+    }
+    function resetCards2() {
+      document.querySelectorAll('#ex2cards .ex2-card').forEach(c => { c.className = 'ex2-card'; c.querySelectorAll('.opt-btn').forEach(b => b.className = 'opt-btn'); });
+      Object.keys(card2sel).forEach(k => delete card2sel[k]);
+      document.getElementById('ex2fb').className = 'ex-fb';
+    }
+
+function resetPageExercises() {
+  resetCards2();
+}
+</script>
+</body>
+</html>

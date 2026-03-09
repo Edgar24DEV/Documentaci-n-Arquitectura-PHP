@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cap 03 · Hexagonal · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="hexagonal">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Capítulo 03</div>
+          <h2 class="ch-h2">Arquitectura<br><span class="ac-g">Hexagonal</span></h2>
+          <p class="ch-lead">Aísla tu dominio de todo lo externo. El negocio no debe saber que existe Laravel, Eloquent
+            ni ningún framework.</p>
+        </div>
+        <div class="ch-badge">25 puntos</div>
+      </div>
+
+      <div class="diagram">
+        <div class="diagram-lbl">Ports &amp; Adapters — dependencias apuntan hacia dentro</div>
+        <div class="hlayers">
+          <div class="hrow">
+            <div class="hbox ext">HTTP Controller</div>
+            <div class="hbox ext">Artisan Command</div>
+            <div class="hbox ext">Queue Job</div>
+            <div class="hbox ext">Test</div>
+          </div>
+          <div class="hrow"><span class="harrow">↓ Adaptadores Primarios (Driving) ↓</span></div>
+          <div class="hrow">
+            <div class="hbox port" style="min-width:220px">Input Ports (Use Case Interfaces)</div>
+          </div>
+          <div class="hrow"><span class="harrow">↓</span></div>
+          <div class="hrow">
+            <div class="hbox dom" style="min-width:280px">DOMAIN CORE<br><span
+                style="font-size:10px;opacity:.6">Entities · VOs · Domain Services · Events</span></div>
+          </div>
+          <div class="hrow"><span class="harrow">↓</span></div>
+          <div class="hrow">
+            <div class="hbox port" style="min-width:220px">Output Ports (Repository Interfaces)</div>
+          </div>
+          <div class="hrow"><span class="harrow">↓ Adaptadores Secundarios (Driven) ↓</span></div>
+          <div class="hrow">
+            <div class="hbox ext">EloquentRepository</div>
+            <div class="hbox ext">MailgunNotifier</div>
+            <div class="hbox ext">RedisCache</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">Estructura DDD — Bounded Context como raíz</h3>
+      <div class="callout warn"><span class="callout-icon">⚠️</span>
+        <div><strong>Error común:</strong> estructurar por capa técnica primero (<code>Domain/</code>,
+          <code>Application/</code>…). En DDD el Bounded Context es el ciudadano de primera clase.
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Estructura DDD — Bounded Context primero</span>
+        </div>
+        <pre><span class="pr">src/</span>
+├── <span class="pr">Order/</span>                       <span class="cm">◀ Bounded Context</span>
+│   ├── <span class="pr">Domain/</span>                  <span class="cm">Cero deps de Laravel</span>
+│   │   ├── <span class="pr">Order.php</span>            <span class="cm">Aggregate Root</span>
+│   │   ├── <span class="pr">OrderId.php</span>          <span class="cm">Value Object</span>
+│   │   ├── <span class="pr">OrderStatus.php</span>      <span class="cm">Enum de dominio</span>
+│   │   ├── <span class="pr">Events/</span>              <span class="cm">OrderPlaced, OrderConfirmed</span>
+│   │   ├── <span class="pr">Exceptions/</span>          <span class="cm">OrderNotFound</span>
+│   │   ├── <span class="pr">Repositories/</span>
+│   │   │   └── <span class="pr">OrderRepository.php</span>     <span class="cm">Interface (Puerto)</span>
+│   │   └── <span class="pr">Services/</span>
+│   │       └── <span class="pr">OrderPricingService.php</span>  <span class="cm">Domain Service</span>
+│   ├── <span class="pr">Application/</span>
+│   │   ├── <span class="pr">PlaceOrder/</span>
+│   │   │   ├── <span class="pr">PlaceOrderCommand.php</span>    <span class="cm">con VOs</span>
+│   │   │   └── <span class="pr">PlaceOrderHandler.php</span>
+│   │   └── <span class="pr">Find/</span>
+│   │       ├── <span class="pr">OrderFinder.php</span>          <span class="cm">usa el Repo</span>
+│   │       ├── <span class="pr">OrderQuerier.php</span>         <span class="cm">Interface proyecciones</span>
+│   │       ├── <span class="pr">GetOrderQuery.php</span>         <span class="cm">con VOs</span>
+│   │       └── <span class="pr">GetOrderHandler.php</span>      <span class="cm">permisos→finder→querier</span>
+│   └── <span class="pr">Infrastructure/</span>
+│       ├── <span class="pr">EloquentOrderRepository.php</span>
+│       ├── <span class="pr">EloquentOrderQuerier.php</span>
+│       └── <span class="pr">Http/OrderController.php</span>
+├── <span class="pr">Catalog/</span>                     <span class="cm">◀ Bounded Context</span>
+├── <span class="pr">Identity/</span>                    <span class="cm">◀ Bounded Context</span>
+└── <span class="pr">Shared/</span>                      <span class="cm">◀ Shared Kernel (VOs compartidos)</span>
+    └── <span class="pr">Domain/ValueObjects/</span>      <span class="cm">Money.php, Email.php</span></pre>
+      </div>
+
+      <!-- EX 3 — DRAG & DROP -->
+      <div class="ex-wrap" id="ex3">
+        <div class="ex-head"><span class="ex-tag">Ejercicio 3</span><span class="ex-title-text">Clasifica cada
+            componente en su capa</span><span class="ex-pts">25 pts</span></div>
+        <div class="ex-body">
+          <div class="ex-desc">Arrastra cada componente a su capa correcta. Las interfaces de repositorio tienen trampa
+            — ¡pertenecen al Domain, no a Infraestructura!</div>
+          <div class="drag-area">
+            <div>
+              <div class="drag-bank" id="dbank">
+                <div
+                  style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">
+                  Componentes</div>
+                <div class="d-item" draggable="true" data-id="er" data-layer="infra">EloquentOrderRepository</div>
+                <div class="d-item" draggable="true" data-id="oi" data-layer="domain">OrderId (Value Object)</div>
+                <div class="d-item" draggable="true" data-id="oc" data-layer="presentation">OrderController</div>
+                <div class="d-item" draggable="true" data-id="ri" data-layer="domain">OrderRepository (Interface)</div>
+                <div class="d-item" draggable="true" data-id="ph" data-layer="application">PlaceOrderHandler</div>
+                <div class="d-item" draggable="true" data-id="mn" data-layer="infra">MailgunNotifier</div>
+                <div class="d-item" draggable="true" data-id="oa" data-layer="domain">Order (Aggregate)</div>
+                <div class="d-item" draggable="true" data-id="pc" data-layer="application">PlaceOrderCommand</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="drag-zone" id="dz-domain" data-zone="domain">
+                <div class="drag-zone-lbl" style="color:var(--r)">🔴 Domain Layer</div>
+              </div>
+              <div class="drag-zone" id="dz-application" data-zone="application">
+                <div class="drag-zone-lbl" style="color:var(--y)">🟡 Application Layer</div>
+              </div>
+              <div class="drag-zone" id="dz-infra" data-zone="infra">
+                <div class="drag-zone-lbl" style="color:var(--b)">🔵 Infrastructure</div>
+              </div>
+              <div class="drag-zone" id="dz-presentation" data-zone="presentation">
+                <div class="drag-zone-lbl" style="color:var(--g)">🟢 Presentation</div>
+              </div>
+            </div>
+          </div>
+          <div class="ex-actions">
+            <button class="btn-check" onclick="checkDrag()">Comprobar</button>
+            <button class="btn-reset" onclick="resetDrag()">Reiniciar</button>
+          </div>
+          <div class="ex-fb" id="ex3fb"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="cap2.html">← Cap 02 · SOLID</a><a class="pager-btn" href="cap4.html">Cap 04 · DDD →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+
+// ════ EX3 — drag & drop ════
+    let dragged = null;
+    document.addEventListener('dragstart', e => { if (!e.target.classList.contains('d-item') || e.target.classList.contains('used')) return; dragged = e.target; e.target.style.opacity = '.4'; });
+    document.addEventListener('dragend', e => { if (e.target.classList.contains('d-item')) e.target.style.opacity = ''; });
+    document.querySelectorAll('.drag-zone').forEach(zone => {
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('over');
+        if (!dragged || dragged.classList.contains('used')) return;
+        const clone = dragged.cloneNode(true); clone.draggable = false; clone.style.opacity = '1'; clone.classList.remove('used'); clone.dataset.zone = zone.dataset.zone;
+        zone.appendChild(clone); dragged.classList.add('used'); dragged.style.opacity = '.25'; dragged = null;
+      });
+    });
+    function checkDrag() {
+      let ok = 0, total = 8;
+      document.querySelectorAll('.drag-zone').forEach(zone => { const exp = zone.dataset.zone; zone.querySelectorAll('.d-item').forEach(i => { if (i.dataset.layer === exp) ok++; }); });
+      const fb = document.getElementById('ex3fb');
+      if (ok === total) { fb.textContent = '✓ ¡Perfecto! Todas las piezas en su capa correcta.'; fb.className = 'ex-fb show pass'; award(25, 'ex3'); }
+      else { fb.textContent = `✗ ${ok}/${total}. Las interfaces (puertos) pertenecen al Domain, no a Infrastructure.`; fb.className = 'ex-fb show fail'; }
+    }
+    function resetDrag() {
+      document.querySelectorAll('.drag-zone .d-item').forEach(i => i.remove());
+      document.querySelectorAll('#dbank .d-item').forEach(i => { i.classList.remove('used'); i.style.opacity = ''; });
+      document.getElementById('ex3fb').className = 'ex-fb';
+    }
+
+function resetPageExercises() {
+  resetDrag();
+}
+</script>
+</body>
+</html>

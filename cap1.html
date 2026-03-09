@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cap 01 · Clean Code · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="cleancode">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Capítulo 01</div>
+          <h2 class="ch-h2"><span class="ac-r">Clean</span><br>Code</h2>
+          <p class="ch-lead">El código limpio no es una cuestión estética. Es la diferencia entre un sistema que puedes
+            cambiar con confianza y uno que tienes miedo de tocar.</p>
+        </div>
+        <div class="ch-badge">15 puntos</div>
+      </div>
+
+      <div class="prose">
+        <p>Robert C. Martin define el buen código como aquel que <strong>"hace una cosa bien y es fácil de
+            cambiar"</strong>. Los principios no son reglas arbitrarias — son respuestas a problemas reales que todo
+          equipo encuentra cuando un proyecto crece.</p>
+      </div>
+
+      <h3 class="sec-title">Nombres que revelan intención</h3>
+      <div class="tabs">
+        <div class="tab-bar">
+          <button class="tab-btn on" onclick="tab(this,'cc-bad')">❌ Confuso</button>
+          <button class="tab-btn" onclick="tab(this,'cc-good')">✅ Limpio</button>
+        </div>
+        <div class="tab-pane on" id="cc-bad">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">bad.php</span>
+            </div>
+            <pre><span class="kw">function</span> <span class="fn">calc</span>(<span class="pr">$d</span>, <span class="pr">$r</span>): <span class="ph">float</span>
+{
+    <span class="pr">$tmp</span> = <span class="pr">$d</span> * (<span class="nm">1</span> - <span class="pr">$r</span>); <span class="cm">// ¿qué es $d? ¿qué es $r?</span>
+    <span class="kw">return</span> <span class="pr">$tmp</span>;
+}
+
+<span class="kw">class</span> <span class="cl">Mgr</span>            <span class="cm">// Manager? Merger? ¿?</span>
+{
+    <span class="kw">public</span> <span class="pr">$u</span>;         <span class="cm">// user? url? unit?</span>
+    <span class="kw">public function</span> <span class="fn">proc</span>() {} <span class="cm">// process? procure?</span>
+}
+
+<span class="cm">// ¿qué hace esto exactamente?</span>
+<span class="kw">if</span> (<span class="pr">$flag</span> && !<span class="pr">$x</span> && <span class="fn">chk</span>(<span class="pr">$d</span>)) { }</pre>
+          </div>
+        </div>
+        <div class="tab-pane" id="cc-good">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">clean.php</span>
+            </div>
+            <pre><span class="kw">function</span> <span class="fn">applyDiscount</span>(<span class="ph">float</span> <span class="pr">$originalPrice</span>, <span class="ph">float</span> <span class="pr">$discountRate</span>): <span class="ph">float</span>
+{
+    <span class="kw">return</span> <span class="pr">$originalPrice</span> * (<span class="nm">1</span> - <span class="pr">$discountRate</span>);
+}
+
+<span class="kw">class</span> <span class="cl">OrderManager</span>
+{
+    <span class="kw">public</span> <span class="cl">User</span> <span class="pr">$assignedUser</span>;
+    <span class="kw">public function</span> <span class="fn">processPayment</span>(<span class="cl">Payment</span> <span class="pr">$payment</span>) {}
+}
+
+<span class="cm">// la intención es cristalina:</span>
+<span class="kw">if</span> (<span class="pr">$userIsActive</span> && !<span class="pr">$orderIsExpired</span> && <span class="fn">hasValidPaymentMethod</span>(<span class="pr">$user</span>)) { }</pre>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">Funciones pequeñas, un nivel de abstracción</h3>
+      <div class="prose">
+        <p>Una función debe hacer <strong>una cosa</strong>. Si necesitas escribir "y" para describirla, está haciendo
+          demasiado. Todo el código dentro de una función debe estar en el mismo nivel de abstracción.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">PlaceOrderAction.php</span>
+        </div>
+        <pre><span class="kw">class</span> <span class="cl">PlaceOrderAction</span>
+{
+    <span class="kw">public function</span> <span class="fn">execute</span>(<span class="cl">PlaceOrderDTO</span> <span class="pr">$dto</span>): <span class="cl">Order</span>
+    {
+        <span class="cm">// Mismo nivel de abstracción en todo el método</span>
+        <span class="kw">$this</span>-><span class="fn">validate</span>(<span class="pr">$dto</span>);
+        <span class="pr">$total</span> = <span class="kw">$this</span>-><span class="fn">calculateTotal</span>(<span class="pr">$dto</span>->items, <span class="pr">$dto</span>->coupon);
+        <span class="pr">$order</span> = <span class="kw">$this</span>-><span class="fn">createOrder</span>(<span class="pr">$dto</span>, <span class="pr">$total</span>);
+        <span class="kw">$this</span>-><span class="fn">notifyCustomer</span>(<span class="pr">$order</span>);
+        <span class="kw">return</span> <span class="pr">$order</span>;
+    }
+
+    <span class="kw">private function</span> <span class="fn">calculateTotal</span>(<span class="ph">array</span> <span class="pr">$items</span>, ?<span class="ph">string</span> <span class="pr">$coupon</span>): <span class="cl">Money</span>
+    {
+        <span class="pr">$subtotal</span> = <span class="cl">OrderCalculator</span>::<span class="fn">subtotal</span>(<span class="pr">$items</span>);
+        <span class="kw">return</span> <span class="cl">CouponService</span>::<span class="fn">apply</span>(<span class="pr">$subtotal</span>, <span class="pr">$coupon</span>);
+    }
+}</pre>
+      </div>
+
+      <!-- EX 1 -->
+      <div class="ex-wrap" id="ex1">
+        <div class="ex-head"><span class="ex-tag">Ejercicio 1</span><span class="ex-title-text">Identifica los problemas
+            de Clean Code</span><span class="ex-pts">15 pts</span></div>
+        <div class="ex-body">
+          <div class="ex-desc">Hay <strong>7 opciones</strong> — pero no todas son problemas reales de Clean Code.
+            Selecciona únicamente las que sí lo son. Una opción es un distractor válido.</div>
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">UserController.php</span>
+            </div>
+            <pre><span class="kw">public function</span> <span class="fn">proc</span>(<span class="cl">Request</span> <span class="pr">$r</span>)
+{
+    <span class="cm">// check</span>
+    <span class="kw">if</span> (!<span class="pr">$r</span>-><span class="pr">e</span> || !<span class="pr">$r</span>-><span class="pr">p</span>) <span class="kw">return</span> <span class="nm">false</span>;
+
+    <span class="pr">$d</span> = <span class="cl">DB</span>::<span class="fn">table</span>(<span class="str">'users'</span>)-><span class="fn">where</span>(<span class="str">'email'</span>, <span class="pr">$r</span>-><span class="pr">e</span>)-><span class="fn">first</span>();
+    <span class="kw">if</span> (!<span class="pr">$d</span>) <span class="kw">return</span> <span class="nm">false</span>;
+
+    <span class="kw">if</span> (<span class="fn">password_verify</span>(<span class="pr">$r</span>-><span class="pr">p</span>, <span class="pr">$d</span>->password)) {
+        <span class="fn">session_start</span>();
+        <span class="pr">$_SESSION</span>[<span class="str">'uid'</span>] = <span class="pr">$d</span>->id;
+        <span class="fn">mail</span>(<span class="pr">$r</span>-><span class="pr">e</span>, <span class="str">'Login'</span>, <span class="str">'Has iniciado sesión'</span>);
+        <span class="kw">return</span> <span class="nm">true</span>;
+    }
+    <span class="kw">return</span> <span class="nm">false</span>;
+}</pre>
+          </div>
+          <div class="opt-grid" id="ex1opts">
+            <button class="opt-btn" data-v="A" onclick="toggleOpt('ex1opts',this)">A: Nombres crípticos — $r, $d, $e, $p
+              no revelan intención</button>
+            <button class="opt-btn" data-v="B" onclick="toggleOpt('ex1opts',this)">B: Múltiples responsabilidades —
+              valida, consulta BD, gestiona sesión y envía email</button>
+            <button class="opt-btn" data-v="C" onclick="toggleOpt('ex1opts',this)">C: Comentario inútil "// check" — no
+              añade información que el código no diga</button>
+            <button class="opt-btn" data-v="D" onclick="toggleOpt('ex1opts',this)">D: Acoplamiento directo a DB:: y
+              mail() — deberían inyectarse</button>
+            <button class="opt-btn" data-v="E" onclick="toggleOpt('ex1opts',this)">E: Retorna false/true — en vez de
+              lanzar excepciones con contexto</button>
+            <button class="opt-btn" data-v="F" onclick="toggleOpt('ex1opts',this)">F: Nombre "proc" — no revela qué hace
+              el método</button>
+            <button class="opt-btn" data-v="G" onclick="toggleOpt('ex1opts',this)">G: Usa password_verify() nativo —
+              Laravel tiene Hash::check() más expresivo</button>
+          </div>
+          <div class="ex-actions">
+            <button class="btn-check"
+              onclick="checkMulti('ex1opts',['A','B','C','D','E','F'],'ex1fb',15,'ex1')">Comprobar</button>
+            <button class="btn-reset" onclick="resetMulti('ex1opts','ex1fb')">Reiniciar</button>
+          </div>
+          <div class="ex-fb" id="ex1fb"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="index.html">← Inicio</a><a class="pager-btn" href="cap2.html">Cap 02 · SOLID →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+// ════ EX1 — multi-select ════
+    function toggleOpt(gridId, btn) { if (btn.classList.contains('ok') || btn.classList.contains('bad')) return; btn.classList.toggle('sel'); }
+    function checkMulti(gridId, correctAnswers, fbId, pts, exId) {
+      const grid = document.getElementById(gridId);
+      const sel = Array.from(grid.querySelectorAll('.opt-btn.sel')).map(b => b.dataset.v);
+      const missing = correctAnswers.filter(x => !sel.includes(x));
+      const extra = sel.filter(x => !correctAnswers.includes(x));
+      grid.querySelectorAll('.opt-btn').forEach(b => { if (correctAnswers.includes(b.dataset.v)) b.classList.add('ok'); else if (sel.includes(b.dataset.v)) b.classList.add('bad'); });
+      const fb = document.getElementById(fbId);
+      const ex1hint = exId === 'ex1' && extra.includes('G') ? ' G no es Clean Code sino una preferencia de framework — password_verify() es perfectamente válido.' : '';
+      if (!missing.length && !extra.length) { fb.textContent = '✓ ¡Perfecto! Has identificado todas las violaciones. Un Handler de alto nivel debe orquestar, no ejecutar infraestructura ni instanciar VOs directamente.'; fb.className = 'ex-fb show pass'; award(pts, exId); }
+      else { fb.textContent = '✗ Casi. ' + (missing.length ? `Faltaban: ${missing.join(', ')}. ` : '') + (extra.length ? `No son problemas de Clean Code: ${extra.join(', ')}.` : '') + ex1hint; fb.className = 'ex-fb show fail'; }
+    }
+    function resetMulti(gridId, fbId) { document.getElementById(gridId).querySelectorAll('.opt-btn').forEach(b => b.className = 'opt-btn'); document.getElementById(fbId).className = 'ex-fb'; }
+
+function resetPageExercises() {
+  resetMulti('ex1opts','ex1fb');
+}
+</script>
+</body>
+</html>

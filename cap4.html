@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cap 04 · DDD · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="ddd">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Capítulo 04</div>
+          <h2 class="ch-h2">Domain-Driven<br><span class="ac-b">Design</span></h2>
+          <p class="ch-lead">El código debe hablar el idioma del negocio. Si no puedes leerlo con el product manager,
+            algo está mal.</p>
+        </div>
+        <div class="ch-badge">20 puntos</div>
+      </div>
+
+      <div class="ddd-grid">
+        <div class="ddd-box">
+          <div class="ddd-box-h" style="color:var(--r)">Entities</div>
+          <div class="ddd-item">Identidad única (ID)</div>
+          <div class="ddd-item">Mutan en el tiempo</div>
+          <div class="ddd-item">Order, User, Product</div>
+        </div>
+        <div class="ddd-box">
+          <div class="ddd-box-h" style="color:var(--b)">Value Objects</div>
+          <div class="ddd-item">Sin identidad propia</div>
+          <div class="ddd-item">Inmutables</div>
+          <div class="ddd-item">Money, Email, OrderId</div>
+        </div>
+        <div class="ddd-box">
+          <div class="ddd-box-h" style="color:var(--y)">Aggregates</div>
+          <div class="ddd-item">Raíz de consistencia</div>
+          <div class="ddd-item">Frontera transaccional</div>
+          <div class="ddd-item">Order + OrderItems</div>
+        </div>
+        <div class="ddd-box">
+          <div class="ddd-box-h" style="color:var(--g)">Domain Events</div>
+          <div class="ddd-item">Algo ocurrió</div>
+          <div class="ddd-item">Inmutables, en pasado</div>
+          <div class="ddd-item">OrderPlaced</div>
+        </div>
+        <div class="ddd-box">
+          <div class="ddd-box-h" style="color:var(--p)">Repositories</div>
+          <div class="ddd-item">Un repo por aggregate</div>
+          <div class="ddd-item">Interface en Domain</div>
+          <div class="ddd-item">OrderRepository</div>
+        </div>
+        <div class="ddd-box">
+          <div class="ddd-box-h" style="color:var(--faint)">Domain Services</div>
+          <div class="ddd-item">Lógica sin hogar</div>
+          <div class="ddd-item">Opera entre aggregates</div>
+          <div class="ddd-item">PricingService</div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">Aggregate Root con invariantes de dominio</h3>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Order/Domain/Order.php — Aggregate Root</span>
+        </div>
+        <pre><span class="kw">final class</span> <span class="cl">Order</span>
+{
+    <span class="kw">private</span> <span class="ph">array</span>       <span class="pr">$items</span>  = [];
+    <span class="kw">private</span> <span class="ph">array</span>       <span class="pr">$events</span> = [];
+    <span class="kw">private</span> <span class="cl">OrderStatus</span> <span class="pr">$status</span>;
+
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">public readonly</span> <span class="cl">OrderId</span>    <span class="pr">$id</span>,
+        <span class="kw">public readonly</span> <span class="cl">CustomerId</span> <span class="pr">$customerId</span>,
+        <span class="kw">public readonly</span> <span class="cl">Currency</span>   <span class="pr">$currency</span>,
+    ) {
+        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="pr">PENDING</span>;
+    }
+
+    <span class="cm">// Todos los VOs: constructor privado, entrada por ::create()</span>
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="cl">CustomerId</span> <span class="pr">$customerId</span>, <span class="cl">Currency</span> <span class="pr">$currency</span>): <span class="kw">self</span>
+    {
+        <span class="pr">$order</span> = <span class="kw">new self</span>(<span class="cl">OrderId</span>::<span class="fn">generate</span>(), <span class="pr">$customerId</span>, <span class="pr">$currency</span>);
+        <span class="pr">$order</span>-><span class="fn">record</span>(<span class="cl">OrderCreated</span>::<span class="fn">create</span>(<span class="pr">$order</span>-><span class="pr">id</span>));
+        <span class="kw">return</span> <span class="pr">$order</span>;
+    }
+
+    <span class="cm">// Invariante: no se puede añadir item a pedido confirmado</span>
+    <span class="kw">public function</span> <span class="fn">addItem</span>(<span class="cl">Product</span> <span class="pr">$product</span>, <span class="cl">Quantity</span> <span class="pr">$quantity</span>): <span class="ph">void</span>
+    {
+        <span class="kw">if</span> (<span class="kw">$this</span>-><span class="pr">status</span> !== <span class="cl">OrderStatus</span>::<span class="pr">PENDING</span>)
+            <span class="kw">throw new</span> <span class="cl">OrderAlreadyConfirmed</span>();
+
+        <span class="kw">$this</span>-><span class="pr">items</span>[] = <span class="cl">OrderItem</span>::<span class="fn">create</span>(<span class="pr">$product</span>, <span class="pr">$quantity</span>);
+    }
+
+    <span class="cm">// Invariante: no se puede confirmar vacío</span>
+    <span class="kw">public function</span> <span class="fn">confirm</span>(): <span class="ph">void</span>
+    {
+        <span class="kw">if</span> (empty(<span class="kw">$this</span>-><span class="pr">items</span>))
+            <span class="kw">throw new</span> <span class="cl">CannotConfirmEmptyOrder</span>();
+
+        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="pr">CONFIRMED</span>;
+        <span class="kw">$this</span>-><span class="fn">record</span>(<span class="cl">OrderConfirmed</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">id</span>, <span class="kw">$this</span>-><span class="fn">dddGetTotal</span>()));
+    }
+
+    <span class="kw">public function</span> <span class="fn">total</span>(): <span class="cl">Money</span>
+    {
+        <span class="kw">return</span> <span class="fn">array_reduce</span>(
+            <span class="kw">$this</span>-><span class="pr">items</span>,
+            <span class="kw">fn</span>(<span class="cl">Money</span> <span class="pr">$s</span>, <span class="cl">OrderItem</span> <span class="pr">$i</span>) => <span class="pr">$s</span>-><span class="fn">add</span>(<span class="pr">$i</span>-><span class="fn">subtotal</span>()),
+            <span class="cl">Money</span>::<span class="fn">zero</span>(<span class="kw">$this</span>-><span class="pr">currency</span>)
+        );
+    }
+
+    <span class="kw">public function</span> <span class="fn">pullEvents</span>(): <span class="ph">array</span>
+    {
+        <span class="kw">return</span> <span class="fn">tap</span>(<span class="kw">$this</span>-><span class="pr">events</span>, <span class="kw">fn</span>() => <span class="kw">$this</span>-><span class="pr">events</span> = []);
+    }
+    <span class="kw">private function</span> <span class="fn">record</span>(<span class="ph">object</span> <span class="pr">$e</span>): <span class="ph">void</span> { <span class="kw">$this</span>-><span class="pr">events</span>[] = <span class="pr">$e</span>; }
+}</pre>
+      </div>
+
+      <!-- EX 4 — MCQ -->
+      <div class="ex-wrap" id="ex4">
+        <div class="ex-head"><span class="ex-tag">Ejercicio 4</span><span class="ex-title-text">¿Entidad, Value Object o
+            Domain Service?</span><span class="ex-pts">20 pts</span></div>
+        <div class="ex-body">
+          <div class="ex-desc">Clasifica cada concepto. <strong>5 puntos por respuesta correcta.</strong></div>
+          <div class="mcq-block" id="mcq1">
+            <div class="mcq-q">1. Un <strong>pedido</strong> con ID único que cambia de estado: pendiente → confirmado →
+              enviado</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq('mcq1',this,'entity')">
+                <div class="mcq-radio"></div>Entity
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq1',this,'vo')">
+                <div class="mcq-radio"></div>Value Object
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq1',this,'service')">
+                <div class="mcq-radio"></div>Domain Service
+              </button>
+            </div>
+          </div>
+          <div class="mcq-block" id="mcq2">
+            <div class="mcq-q">2. El <strong>precio "29.99 EUR"</strong>, inmutable y comparado por valor</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq('mcq2',this,'entity')">
+                <div class="mcq-radio"></div>Entity
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq2',this,'vo')">
+                <div class="mcq-radio"></div>Value Object
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq2',this,'service')">
+                <div class="mcq-radio"></div>Domain Service
+              </button>
+            </div>
+          </div>
+          <div class="mcq-block" id="mcq3">
+            <div class="mcq-q">3. Lógica para <strong>calcular el precio final</strong> con descuentos que involucran al
+              cliente, los productos y la temporada</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq('mcq3',this,'entity')">
+                <div class="mcq-radio"></div>Entity
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq3',this,'vo')">
+                <div class="mcq-radio"></div>Value Object
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq3',this,'service')">
+                <div class="mcq-radio"></div>Domain Service
+              </button>
+            </div>
+          </div>
+          <div class="mcq-block" id="mcq4">
+            <div class="mcq-q">4. Un <strong>email "<a href="/cdn-cgi/l/email-protection" class="__cf_email__"
+                  data-cfemail="b8cdcbddcaf8ddc0d9d5c8d4dd96dbd7d5">[email&#160;protected]</a>"</strong> que se valida
+              al crearse y nunca cambia</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq('mcq4',this,'entity')">
+                <div class="mcq-radio"></div>Entity
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq4',this,'vo')">
+                <div class="mcq-radio"></div>Value Object
+              </button>
+              <button class="mcq-opt" onclick="pickMcq('mcq4',this,'service')">
+                <div class="mcq-radio"></div>Domain Service
+              </button>
+            </div>
+          </div>
+          <div class="ex-actions">
+            <button class="btn-check" onclick="checkMcqs()">Comprobar</button>
+            <button class="btn-reset" onclick="resetMcqs()">Reiniciar</button>
+          </div>
+          <div class="ex-fb" id="ex4fb"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="cap3.html">← Cap 03 · Hexagonal</a><a class="pager-btn" href="cap5.html">Cap 05 · CQRS →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+// ════ EX4 — DDD MCQ ════
+    const MCQ_ANS = { mcq1: 'entity', mcq2: 'vo', mcq3: 'service', mcq4: 'vo' };
+    const mcqSel = {};
+    function pickMcq(blockId, btn, val) {
+      const block = document.getElementById(blockId);
+      if (block.querySelector('.ok') || block.querySelector('.bad')) return;
+      block.querySelectorAll('.mcq-opt').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel'); mcqSel[blockId] = val;
+    }
+    function checkMcqs() {
+      let ok = 0;
+      Object.entries(MCQ_ANS).forEach(([bid, ans]) => {
+        const block = document.getElementById(bid);
+        block.querySelectorAll('.mcq-opt').forEach(b => { const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1]; if (v === ans) b.classList.add('ok'); else if (v === mcqSel[bid] && mcqSel[bid] !== ans) b.classList.add('bad'); });
+        if (mcqSel[bid] === ans) ok++;
+      });
+      const fb = document.getElementById('ex4fb');
+      if (ok === 4) { fb.textContent = '✓ ¡Perfecto! Entities tienen ID y mutan. VOs son inmutables. Services operan entre aggregates.'; fb.className = 'ex-fb show pass'; award(20, 'ex4'); }
+      else { fb.textContent = `✗ ${ok}/4. Entities: ID+mutan. VOs: inmutables, comparados por valor. Services: lógica sin aggregate propio.`; fb.className = 'ex-fb show fail'; }
+    }
+    function resetMcqs() {
+      ['mcq1', 'mcq2', 'mcq3', 'mcq4'].forEach(id => { document.getElementById(id)?.querySelectorAll('.mcq-opt').forEach(b => b.className = 'mcq-opt'); delete mcqSel[id]; });
+      document.getElementById('ex4fb').className = 'ex-fb';
+    }
+
+function resetPageExercises() {
+  resetMcqs();
+}
+</script>
+</body>
+</html>

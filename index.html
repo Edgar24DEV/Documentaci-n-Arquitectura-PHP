@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inicio · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+<body>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-inner">
+      <div>
+        <div class="hero-label">Guía Definitiva · PHP 8.3 · Laravel 11</div>
+        <h1 class="hero-title">Arquitectura<br>de Software<br><em>de Alto Nivel</em></h1>
+        <p class="hero-sub">Clean Code → SOLID → Hexagonal → DDD → CQRS → Tests.<br>Guía progresiva con ejercicios
+          interactivos.</p>
+        <div class="hero-tags">
+          <span class="tag">Clean Code</span><span class="tag">SOLID</span><span class="tag">Hexagonal</span>
+          <span class="tag">DDD</span><span class="tag">CQRS</span><span class="tag">Testing</span><span
+            class="tag">Laravel 11</span>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <div class="panel-title">Contenido</div>
+        <ul class="chapter-list">
+          <li role="button" tabindex="0" onclick="location.href='cap1.html'"
+            onkeydown="if(event.key==='Enter') location.href='cap1.html'"><span class="ch-num">01</span>Clean Code<span
+              class="ch-pts">15 pts</span></li>
+          <li role="button" tabindex="0" onclick="location.href='cap2.html'"
+            onkeydown="if(event.key==='Enter') location.href='cap2.html'"><span class="ch-num">02</span>SOLID<span
+              class="ch-pts">20 pts</span></li>
+          <li role="button" tabindex="0" onclick="location.href='cap3.html'"
+            onkeydown="if(event.key==='Enter') location.href='cap3.html'"><span class="ch-num">03</span>Hexagonal<span
+              class="ch-pts">25 pts</span></li>
+          <li role="button" tabindex="0" onclick="location.href='cap4.html'"
+            onkeydown="if(event.key==='Enter') location.href='cap4.html'"><span class="ch-num">04</span>DDD<span
+              class="ch-pts">20 pts</span></li>
+          <li role="button" tabindex="0" onclick="location.href='cap5.html'"
+            onkeydown="if(event.key==='Enter') location.href='cap5.html'"><span class="ch-num">05</span>CQRS + VOs<span
+              class="ch-pts">20 pts</span></li>
+          <li role="button" tabindex="0" onclick="location.href='cap6.html'"
+            onkeydown="if(event.key==='Enter') location.href='cap6.html'"><span class="ch-num">06</span>Testing<span
+              class="ch-pts">20 pts</span></li>
+        </ul>
+      </div>
+    </div>
+    <div style="max-width:1100px;margin:0 auto;width:100%">
+      <div class="hero-bar">
+        <div class="bar-stat"><span class="bar-stat-val">6</span><span class="bar-stat-lbl">Capítulos</span></div>
+        <div class="bar-div"></div>
+        <div class="bar-stat"><span class="bar-stat-val">8</span><span class="bar-stat-lbl">Ejercicios</span></div>
+        <div class="bar-div"></div>
+        <div class="bar-stat"><span class="bar-stat-val">120</span><span class="bar-stat-lbl">Puntos</span></div>
+        <div class="bar-div"></div>
+        <div class="bar-stat"><span class="bar-stat-val">PHP 8.3</span><span class="bar-stat-lbl">Lenguaje</span></div>
+      </div>
+    </div>
+  </section>
+
+
+  <div class="page">
+    <section id="intro" style="padding:72px 0 48px">
+      <div class="prose">
+        <p><strong>¿Por qué importa la arquitectura?</strong> Laravel hace que escribir código sea fácil. Una buena
+          arquitectura hace que ese código sea mantenible, comprensible y extensible sin romper lo que ya funciona.</p>
+        <p>Esta guía es <strong>progresiva</strong>: cada capítulo construye sobre el anterior. Empieza con los
+          fundamentos de Clean Code y llega hasta CQRS con Value Objects, Tests y DDD en Laravel.</p>
+      </div>
+      <div class="callout php"><span class="callout-icon">🐘</span>
+        <div><strong>Sobre Laravel:</strong> es una herramienta brillante, pero sus convenciones (Active Record,
+          Facades, Fat Controllers) pueden tentar a violar todos estos principios. Aprenderás a aprovechar Laravel sin
+          quedar atrapado por él.</div>
+      </div>
+    </section>
+
+
+  </div>
+  <div class="pager"><span></span><a class="pager-btn" href="cap1.html">Cap 01 · Clean Code →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+function resetPageExercises() {}
+</script>
+</body>
+</html>

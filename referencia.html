@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Referencia · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="laravel" style="padding-bottom:40px">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Referencia</div>
+          <h2 class="ch-h2">Laravel<br><span class="ac-p">Integration</span></h2>
+          <p class="ch-lead">Cómo hacer que Laravel trabaje para tu arquitectura, y no al revés.</p>
+        </div>
+        <div class="ch-badge">Referencia</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Laravel ofrece</th>
+              <th>Úsalo en</th>
+              <th>Nunca en</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Eloquent Models</code></td>
+              <td>Infrastructure (mapper)</td>
+              <td>Domain Layer</td>
+              <td>El dominio no puede depender de Active Record</td>
+            </tr>
+            <tr>
+              <td><code>Facades</code></td>
+              <td>Infrastructure adapters</td>
+              <td>Application / Domain</td>
+              <td>Ocultan dependencias, dificultan tests</td>
+            </tr>
+            <tr>
+              <td><code>Form Requests</code></td>
+              <td>Presentation layer</td>
+              <td>Application / Domain</td>
+              <td>No pasar <code>$request</code> al handler</td>
+            </tr>
+            <tr>
+              <td><code>Service Container</code></td>
+              <td>AppServiceProvider (wiring)</td>
+              <td>Domain (no usar <code>app()</code>)</td>
+              <td>El dominio no puede depender del framework</td>
+            </tr>
+            <tr>
+              <td><code>Events &amp; Listeners</code></td>
+              <td>Publicar Domain Events</td>
+              <td>Sustituir Domain Events</td>
+              <td>Los domain events son del dominio</td>
+            </tr>
+            <tr>
+              <td><code>Jobs &amp; Queues</code></td>
+              <td>Ejecutar Commands en background</td>
+              <td>Lógica de negocio en el Job</td>
+              <td>El Job es un adaptador, no un use case</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout tip"><span class="callout-icon">🔥</span>
+        <div><strong>Truco Pro para tests:</strong> en tu <code>TestCase.php</code> puedes hacer
+          <code>$this->app->instance(OrderRepository::class, new InMemoryOrderRepository())</code> para sustituir
+          Eloquent por memoria en tests de integración del framework. Tests mucho más rápidos.
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+    <!-- ROADMAP -->
+    <section id="roadmap">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Tu camino</div>
+          <h2 class="ch-h2">Roadmap del<br><span class="ac-g">Arquitecto PHP</span></h2>
+          <p class="ch-lead">12 meses para pasar de Laravel developer a Software Architect.</p>
+        </div>
+        <div class="ch-badge">Plan personal</div>
+      </div>
+      <div class="roadmap">
+        <div class="rm-step done">
+          <div class="rm-dot"></div>
+          <div class="rm-inner">
+            <div class="rm-period">Mes 1 — 2</div>
+            <div class="rm-title">Clean Code en cada PR</div>
+            <div class="rm-desc">Nombres claros, funciones pequeñas, sin comentarios innecesarios. Configura PHPStan
+              nivel 6+ en tu proyecto. Lee "Clean Code" de Uncle Bob.</div>
+          </div>
+        </div>
+        <div class="rm-step">
+          <div class="rm-dot"></div>
+          <div class="rm-inner">
+            <div class="rm-period">Mes 3 — 4</div>
+            <div class="rm-title">SOLID + primeros tests</div>
+            <div class="rm-desc">Refactoriza Fat Controllers. Introduce Form Requests, Actions y el primer Repository
+              con interfaz. Empieza a escribir tests con InMemoryRepositories usando Pest.</div>
+          </div>
+        </div>
+        <div class="rm-step">
+          <div class="rm-dot"></div>
+          <div class="rm-inner">
+            <div class="rm-period">Mes 5 — 6</div>
+            <div class="rm-title">Arquitectura Hexagonal + pirámide de tests</div>
+            <div class="rm-desc">Construye una API REST con la estructura de Bounded Contexts. Tests unitarios de
+              dominio y use cases sin framework. Lee "Laravel Beyond CRUD" de Brent Roose.</div>
+          </div>
+        </div>
+        <div class="rm-step">
+          <div class="rm-dot"></div>
+          <div class="rm-inner">
+            <div class="rm-period">Mes 7 — 8</div>
+            <div class="rm-title">DDD + Value Objects en Commands/Queries</div>
+            <div class="rm-desc">Modela Aggregates con invariantes, Domain Events y Value Objects. Aplica VOs en
+              Commands y Queries. Object Mothers para tests. Lee "Implementing DDD" de Vaughn Vernon.</div>
+          </div>
+        </div>
+        <div class="rm-step">
+          <div class="rm-dot"></div>
+          <div class="rm-inner">
+            <div class="rm-period">Mes 9 — 10</div>
+            <div class="rm-title">CQRS + Event Bus</div>
+            <div class="rm-desc">Finders, Queriers y AuthorizationServices. Procesa Commands en background con Laravel
+              Horizon + Redis. Integration tests del Querier.</div>
+          </div>
+        </div>
+        <div class="rm-step">
+          <div class="rm-dot"></div>
+          <div class="rm-inner">
+            <div class="rm-period">Mes 11 — 12</div>
+            <div class="rm-title">Microservicios y Event Sourcing</div>
+            <div class="rm-desc">Cada Bounded Context puede ser un microservicio independiente. Explora Event Sourcing,
+              API Gateway y Circuit Breaker. Lee "Building Microservices" de Sam Newman.</div>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Libro</th>
+              <th>Autor</th>
+              <th>Cubre</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Clean Code</td>
+              <td>Robert C. Martin</td>
+              <td>Fundamentos de código limpio</td>
+            </tr>
+            <tr>
+              <td>Clean Architecture</td>
+              <td>Robert C. Martin</td>
+              <td>Capas, SOLID, arquitectura</td>
+            </tr>
+            <tr>
+              <td>Laravel Beyond CRUD</td>
+              <td>Brent Roose</td>
+              <td>DDD específico para Laravel</td>
+            </tr>
+            <tr>
+              <td>Implementing DDD</td>
+              <td>Vaughn Vernon</td>
+              <td>DDD práctico y completo</td>
+            </tr>
+            <tr>
+              <td>Domain-Driven Design</td>
+              <td>Eric Evans</td>
+              <td>El libro azul — DDD fundamentos</td>
+            </tr>
+            <tr>
+              <td>Building Microservices</td>
+              <td>Sam Newman</td>
+              <td>Sistemas distribuidos</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout tip"><span class="callout-icon">🔥</span>
+        <div><strong>Truco Pro para tests:</strong> en tu <code>TestCase.php</code> puedes hacer
+          <code>$this->app->instance(OrderRepository::class, new InMemoryOrderRepository())</code> para sustituir
+          Eloquent por memoria en tests de integración del framework. Tests mucho más rápidos.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="cap6.html">← Cap 06 · Testing</a><span></span></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+function resetPageExercises() {}
+</script>
+</body>
+</html>

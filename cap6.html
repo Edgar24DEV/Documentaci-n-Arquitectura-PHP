@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cap 06 · Testing · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="testing">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Capítulo 06</div>
+          <h2 class="ch-h2">Testing de<br><span class="ac-p">Arquitectura</span></h2>
+          <p class="ch-lead">Una buena arquitectura es aquella que se puede testear sin base de datos, sin HTTP y sin
+            efectos secundarios. Los tests son el mayor indicador de calidad de diseño.</p>
+        </div>
+        <div class="ch-badge">20 puntos</div>
+      </div>
+
+      <div class="prose">
+        <p>La arquitectura hexagonal paga su precio al escribir tests: el dominio no tiene dependencias de Laravel, por
+          tanto <strong>los tests de Use Cases son tests unitarios puros</strong>, sin base de datos, sin HTTP, sin
+          colas. Simplemente PHP.</p>
+        <p>Si un test de un Use Case necesita levantar el framework o la BD, es una señal de que la arquitectura está
+          rota.</p>
+      </div>
+
+      <h3 class="sec-title">La pirámide de tests</h3>
+      <div class="test-pyramid">
+        <div class="tp-row" style="justify-content:center">
+          <span class="tp-lbl" style="text-align:right">Feature / E2E</span>
+          <div class="tp-bar"
+            style="width:30%;background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);color:var(--y);justify-content:center">
+            Pocos, lentos</div>
+          <span class="tp-meta">~10%</span>
+        </div>
+        <div class="tp-row" style="justify-content:center">
+          <span class="tp-lbl">Integration</span>
+          <div class="tp-bar"
+            style="width:55%;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.3);color:var(--b);justify-content:center">
+            Moderados</div>
+          <span class="tp-meta">~30%</span>
+        </div>
+        <div class="tp-row" style="justify-content:center">
+          <span class="tp-lbl">Unit</span>
+          <div class="tp-bar"
+            style="width:85%;background:rgba(31,166,114,.12);border:1px solid rgba(31,166,114,.3);color:var(--g);justify-content:center">
+            Muchos, rápidos, sin BD</div>
+          <span class="tp-meta">~60%</span>
+        </div>
+      </div>
+
+      <h3 class="sec-title">Unit Test — dominio puro (sin framework)</h3>
+      <div class="prose">
+        <p>Los tests de dominio son los más valiosos. Prueban las invariantes del negocio directamente, en
+          microsegundos, sin ninguna dependencia externa.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">tests/Unit/Domain/OrderTest.php — Pest</span>
+        </div>
+        <pre><span class="fn">it</span>(<span class="str">'accumulates items and calculates total correctly'</span>, <span class="kw">function</span> () {
+    <span class="pr">$order</span> = <span class="cl">Order</span>::<span class="fn">create</span>(
+        <span class="cl">CustomerId</span>::<span class="fn">create</span>(<span class="str">'customer-1'</span>),
+        <span class="cl">Currency</span>::<span class="fn">create</span>(<span class="str">'EUR'</span>),
+    );
+
+    <span class="pr">$product</span> = <span class="cl">ProductMother</span>::<span class="fn">withPrice</span>(<span class="cl">Money</span>::<span class="fn">of</span>(<span class="nm">1000</span>, <span class="str">'EUR'</span>));  <span class="cm">// 10€</span>
+    <span class="pr">$order</span>-><span class="fn">addItem</span>(<span class="pr">$product</span>, <span class="cl">Quantity</span>::<span class="fn">create</span>(<span class="nm">3</span>));
+
+    <span class="fn">expect</span>(<span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">dddGetCents</span>())->toBe(<span class="nm">3000</span>)
+         -><span class="fn">and</span>(<span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">dddGetCurrency</span>())->toBe(<span class="str">'EUR'</span>);
+});
+
+<span class="fn">it</span>(<span class="str">'throws when adding item to a confirmed order'</span>, <span class="kw">function</span> () {
+    <span class="pr">$order</span> = <span class="cl">OrderMother</span>::<span class="fn">confirmedWithOneItem</span>();
+
+    <span class="fn">expect</span>(<span class="kw">fn</span>() => <span class="pr">$order</span>-><span class="fn">addItem</span>(<span class="cl">ProductMother</span>::<span class="fn">random</span>(), <span class="cl">Quantity</span>::<span class="fn">create</span>(<span class="nm">1</span>)))
+        -><span class="fn">toThrow</span>(<span class="cl">OrderAlreadyConfirmed</span>::<span class="kw">class</span>);
+});
+
+<span class="fn">it</span>(<span class="str">'records an OrderConfirmed event on confirm'</span>, <span class="kw">function</span> () {
+    <span class="pr">$order</span> = <span class="cl">OrderMother</span>::<span class="fn">pendingWithItems</span>();
+    <span class="pr">$order</span>-><span class="fn">confirm</span>();
+
+    <span class="pr">$events</span> = <span class="pr">$order</span>-><span class="fn">pullEvents</span>();
+    <span class="fn">expect</span>(<span class="pr">$events</span>)-><span class="fn">toHaveCount</span>(<span class="nm">2</span>)  <span class="cm">// OrderCreated + OrderConfirmed</span>
+         -><span class="fn">and</span>(<span class="pr">$events</span>[<span class="nm">1</span>])-><span class="fn">toBeInstanceOf</span>(<span class="cl">OrderConfirmed</span>::<span class="kw">class</span>);
+});</pre>
+      </div>
+
+      <h3 class="sec-title">Unit Test — Use Case con InMemory Repository</h3>
+      <div class="prose">
+        <p>Los tests de Use Cases usan implementaciones <em>in-memory</em> de los repositorios. Sin base de datos real,
+          sin Laravel, ejecución en &lt;1ms. Esto solo es posible gracias a DIP.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">tests/Unit/Application/PlaceOrderHandlerTest.php</span>
+        </div>
+        <pre><span class="kw">use</span> <span class="cl">Tests\Doubles\InMemoryOrderRepository</span>;
+<span class="kw">use</span> <span class="cl">Tests\Doubles\InMemoryProductRepository</span>;
+<span class="kw">use</span> <span class="cl">Tests\Doubles\SpyEventDispatcher</span>;
+
+<span class="fn">it</span>(<span class="str">'places an order and dispatches domain events'</span>, <span class="kw">function</span> () {
+    <span class="cm">// Arrange — sin BD, sin framework</span>
+    <span class="pr">$orders</span>   = <span class="kw">new</span> <span class="cl">InMemoryOrderRepository</span>();
+    <span class="pr">$products</span> = <span class="kw">new</span> <span class="cl">InMemoryProductRepository</span>();
+    <span class="pr">$events</span>   = <span class="kw">new</span> <span class="cl">SpyEventDispatcher</span>();
+    <span class="pr">$product</span>  = <span class="cl">ProductMother</span>::<span class="fn">withPrice</span>(<span class="cl">Money</span>::<span class="fn">of</span>(<span class="nm">2000</span>, <span class="str">'EUR'</span>));
+    <span class="pr">$products</span>-><span class="fn">save</span>(<span class="pr">$product</span>);
+
+    <span class="pr">$handler</span> = <span class="kw">new</span> <span class="cl">PlaceOrderHandler</span>(<span class="pr">$orders</span>, <span class="pr">$products</span>, <span class="pr">$events</span>);
+    <span class="pr">$command</span> = <span class="cl">PlaceOrderCommand</span>::<span class="fn">create</span>(
+        <span class="cl">CustomerId</span>::<span class="fn">create</span>(<span class="str">'customer-1'</span>),
+        <span class="cl">OrderItemList</span>::<span class="fn">fromArray</span>([[
+            <span class="str">'productId'</span> => <span class="pr">$product</span>-><span class="pr">id</span>-><span class="fn">value</span>(),
+            <span class="str">'quantity'</span>  => <span class="nm">2</span>,
+        ]]),
+        <span class="cl">Currency</span>::<span class="fn">create</span>(<span class="str">'EUR'</span>),
+    );
+
+    <span class="cm">// Act</span>
+    <span class="pr">$orderId</span> = <span class="pr">$handler</span>-><span class="fn">handle</span>(<span class="pr">$command</span>);
+
+    <span class="cm">// Assert</span>
+    <span class="pr">$saved</span> = <span class="pr">$orders</span>-><span class="fn">findById</span>(<span class="pr">$orderId</span>);
+    <span class="fn">expect</span>(<span class="pr">$saved</span>)-><span class="fn">not</span>()-><span class="fn">toBeNull</span>()
+         -><span class="fn">and</span>(<span class="pr">$saved</span>-><span class="pr">id</span>)-><span class="fn">toEqual</span>(<span class="pr">$orderId</span>)
+         -><span class="fn">and</span>(<span class="pr">$saved</span>-><span class="fn">total</span>()-><span class="fn">dddGetCents</span>())-><span class="fn">toBe</span>(<span class="nm">4000</span>);
+
+    <span class="fn">expect</span>(<span class="pr">$events</span>-><span class="fn">dispatched</span>())-><span class="fn">toHaveCount</span>(<span class="nm">1</span>)
+         -><span class="fn">and</span>(<span class="pr">$events</span>-><span class="fn">dispatched</span>()[<span class="nm">0</span>])-><span class="fn">toBeInstanceOf</span>(<span class="cl">OrderCreated</span>::<span class="kw">class</span>);
+});
+
+<span class="fn">it</span>(<span class="str">'throws when a product is not found'</span>, <span class="kw">function</span> () {
+    <span class="pr">$handler</span> = <span class="kw">new</span> <span class="cl">PlaceOrderHandler</span>(
+        <span class="kw">new</span> <span class="cl">InMemoryOrderRepository</span>(),
+        <span class="kw">new</span> <span class="cl">InMemoryProductRepository</span>(),  <span class="cm">// vacío</span>
+        <span class="kw">new</span> <span class="cl">SpyEventDispatcher</span>(),
+    );
+
+    <span class="fn">expect</span>(<span class="kw">fn</span>() => <span class="pr">$handler</span>-><span class="fn">handle</span>(<span class="cl">PlaceOrderCommandMother</span>::<span class="fn">random</span>()))
+        -><span class="fn">toThrow</span>(<span class="cl">ProductNotFound</span>::<span class="kw">class</span>);
+});</pre>
+      </div>
+
+      <h3 class="sec-title">Test Doubles — InMemory Repository</h3>
+      <div class="prose">
+        <p>Los repositorios in-memory son implementaciones del interface de dominio que guardan datos en un array. Son
+          la clave para tests de use cases rápidos y sin dependencias.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">tests/Doubles/InMemoryOrderRepository.php</span>
+        </div>
+        <pre><span class="kw">final class</span> <span class="cl">InMemoryOrderRepository</span> <span class="kw">implements</span> <span class="cl">OrderRepository</span>
+{
+    <span class="cm">/** @var Order[] */</span>
+    <span class="kw">private</span> <span class="ph">array</span> <span class="pr">$store</span> = [];
+
+    <span class="kw">public function</span> <span class="fn">findById</span>(<span class="cl">OrderId</span> <span class="pr">$id</span>): ?<span class="cl">Order</span>
+    {
+        <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">store</span>[<span class="pr">$id</span>-><span class="fn">value</span>()] ?? <span class="kw">null</span>;
+    }
+
+    <span class="kw">public function</span> <span class="fn">save</span>(<span class="cl">Order</span> <span class="pr">$order</span>): <span class="ph">void</span>
+    {
+        <span class="kw">$this</span>-><span class="pr">store</span>[<span class="pr">$order</span>-><span class="pr">id</span>-><span class="fn">value</span>()] = <span class="pr">$order</span>;
+    }
+
+    <span class="cm">/** Helpers para asserts en tests */</span>
+    <span class="kw">public function</span> <span class="fn">count</span>(): <span class="ph">int</span>
+    {
+        <span class="kw">return</span> <span class="fn">count</span>(<span class="kw">$this</span>-><span class="pr">store</span>);
+    }
+
+    <span class="kw">public function</span> <span class="fn">all</span>(): <span class="ph">array</span>
+    {
+        <span class="kw">return</span> <span class="fn">array_values</span>(<span class="kw">$this</span>-><span class="pr">store</span>);
+    }
+}
+
+<span class="cm">// SpyEventDispatcher: registra los eventos despachados</span>
+<span class="kw">final class</span> <span class="cl">SpyEventDispatcher</span> <span class="kw">implements</span> <span class="cl">EventDispatcher</span>
+{
+    <span class="kw">private</span> <span class="ph">array</span> <span class="pr">$dispatched</span> = [];
+
+    <span class="kw">public function</span> <span class="fn">dispatch</span>(<span class="ph">object</span> <span class="pr">$event</span>): <span class="ph">void</span>
+    {
+        <span class="kw">$this</span>-><span class="pr">dispatched</span>[] = <span class="pr">$event</span>;
+    }
+
+    <span class="kw">public function</span> <span class="fn">dispatched</span>(): <span class="ph">array</span>
+    {
+        <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">dispatched</span>;
+    }
+}</pre>
+      </div>
+
+      <h3 class="sec-title">Integration Test — con base de datos real</h3>
+      <div class="callout tip"><span class="callout-icon">✅</span>
+        <div><strong>Cuándo usar integration tests:</strong> para probar que el Mapper, el Repository Eloquent y la BD
+          real funcionan juntos. No para la lógica de negocio — eso ya lo cubren los unit tests.</div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">tests/Integration/EloquentOrderRepositoryTest.php</span>
+        </div>
+        <pre><span class="kw">use</span> <span class="cl">Illuminate\Foundation\Testing\RefreshDatabase</span>;
+
+<span class="fn">uses</span>(<span class="cl">RefreshDatabase</span>::<span class="kw">class</span>);
+
+<span class="fn">it</span>(<span class="str">'persists and retrieves an order by id'</span>, <span class="kw">function</span> () {
+    <span class="pr">$repo</span>  = <span class="kw">new</span> <span class="cl">EloquentOrderRepository</span>();
+    <span class="pr">$order</span> = <span class="cl">OrderMother</span>::<span class="fn">confirmed</span>();
+
+    <span class="pr">$repo</span>-><span class="fn">save</span>(<span class="pr">$order</span>);
+
+    <span class="pr">$found</span> = <span class="pr">$repo</span>-><span class="fn">findById</span>(<span class="pr">$order</span>-><span class="pr">id</span>);
+
+    <span class="fn">expect</span>(<span class="pr">$found</span>)-><span class="fn">not</span>()-><span class="fn">toBeNull</span>()
+         -><span class="fn">and</span>(<span class="pr">$found</span>-><span class="pr">id</span>)-><span class="fn">toEqual</span>(<span class="pr">$order</span>-><span class="pr">id</span>)
+         -><span class="fn">and</span>(<span class="pr">$found</span>-><span class="fn">total</span>()-><span class="fn">dddGetCents</span>())-><span class="fn">toBe</span>(<span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">dddGetCents</span>());
+});
+
+<span class="fn">it</span>(<span class="str">'returns null for a non-existent order'</span>, <span class="kw">function</span> () {
+    <span class="pr">$repo</span> = <span class="kw">new</span> <span class="cl">EloquentOrderRepository</span>();
+    <span class="fn">expect</span>(<span class="pr">$repo</span>-><span class="fn">findById</span>(<span class="cl">OrderId</span>::<span class="fn">create</span>(<span class="str">'non-existent'</span>)))-><span class="fn">toBeNull</span>();
+});</pre>
+      </div>
+
+      <h3 class="sec-title">Object Mothers — datos de test legibles</h3>
+      <div class="prose">
+        <p>Los <strong>Object Mothers</strong> son factories de objetos de dominio para tests. Centralizan la creación
+          de objetos complejos y hacen los tests mucho más legibles.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">tests/Mothers/OrderMother.php</span>
+        </div>
+        <pre><span class="kw">final class</span> <span class="cl">OrderMother</span>
+{
+    <span class="kw">public static function</span> <span class="fn">pending</span>(): <span class="cl">Order</span>
+    {
+        <span class="kw">return</span> <span class="cl">Order</span>::<span class="fn">create</span>(
+            <span class="cl">CustomerId</span>::<span class="fn">create</span>(<span class="cl">Str</span>::<span class="fn">uuid</span>()),
+            <span class="cl">Currency</span>::<span class="fn">create</span>(<span class="str">'EUR'</span>),
+        );
+    }
+
+    <span class="kw">public static function</span> <span class="fn">pendingWithItems</span>(<span class="ph">int</span> <span class="pr">$count</span> = <span class="nm">2</span>): <span class="cl">Order</span>
+    {
+        <span class="pr">$order</span> = <span class="kw">self</span>::<span class="fn">pending</span>();
+        <span class="kw">for</span> (<span class="pr">$i</span> = <span class="nm">0</span>; <span class="pr">$i</span> < <span class="pr">$count</span>; <span class="pr">$i</span>++) {
+            <span class="pr">$order</span>-><span class="fn">addItem</span>(<span class="cl">ProductMother</span>::<span class="fn">random</span>(), <span class="cl">Quantity</span>::<span class="fn">create</span>(<span class="nm">1</span>));
+        }
+        <span class="kw">return</span> <span class="pr">$order</span>;
+    }
+
+    <span class="kw">public static function</span> <span class="fn">confirmed</span>(): <span class="cl">Order</span>
+    {
+        <span class="pr">$order</span> = <span class="kw">self</span>::<span class="fn">pendingWithItems</span>();
+        <span class="pr">$order</span>-><span class="fn">confirm</span>();
+        <span class="kw">return</span> <span class="pr">$order</span>;
+    }
+}</pre>
+      </div>
+
+      <!-- EX 6 — EDGE CASES -->
+      <div class="ex-wrap" id="ex6">
+        <div class="ex-head"><span class="ex-tag">Ejercicio 6</span><span class="ex-title-text">Escenarios edge — ¿dónde
+            va cada pieza?</span><span class="ex-pts">20 pts</span></div>
+        <div class="ex-body">
+          <div class="ex-desc">Escenarios reales que generan dudas. Selecciona la respuesta más correcta. <strong>4
+              puntos cada uno.</strong></div>
+
+          <div class="mcq-block" id="emcq1">
+            <div class="mcq-q">1. Necesitas calcular si un cliente tiene derecho a descuento VIP según su historial de
+              compras y su país. Esta lógica involucra <code>Customer</code> y <code>Order</code>. ¿Dónde va?</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq3('emcq1',this,'a')">
+                <div class="mcq-radio"></div>En el método <code>Customer::isVip()</code> — el Aggregate se calcula solo
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq1',this,'b')">
+                <div class="mcq-radio"></div>En un Domain Service <code>VipEligibilityService</code> — opera entre
+                aggregates
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq1',this,'c')">
+                <div class="mcq-radio"></div>En el Handler — es lógica de aplicación, no de dominio
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq1',this,'d')">
+                <div class="mcq-radio"></div>En un Eloquent scope <code>Customer::vip()</code> — más práctico
+              </button>
+            </div>
+          </div>
+
+          <div class="mcq-block" id="emcq2">
+            <div class="mcq-q">2. Un <code>Coupon</code> tiene código único, puede usarse solo una vez, y guarda quién
+              lo usó. ¿Es Entity o Value Object?</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq3('emcq2',this,'a')">
+                <div class="mcq-radio"></div>Value Object — tiene un código único que lo identifica
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq2',this,'b')">
+                <div class="mcq-radio"></div>Entity — tiene identidad propia, estado mutable y ciclo de vida
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq2',this,'c')">
+                <div class="mcq-radio"></div>Domain Service — la lógica de aplicación del cupón es compleja
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq2',this,'d')">
+                <div class="mcq-radio"></div>Aggregate Root — controla su propio ciclo de vida
+              </button>
+            </div>
+          </div>
+
+          <div class="mcq-block" id="emcq3">
+            <div class="mcq-q">3. El <code>OrderCreator</code> (Domain Service) necesita consultar el stock de un
+              producto. ¿Cómo lo hace sin romper el aislamiento del dominio?</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq3('emcq3',this,'a')">
+                <div class="mcq-radio"></div>Llama directamente a <code>DB::table('stock')->where(...)</code> dentro del
+                Creator
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq3',this,'b')">
+                <div class="mcq-radio"></div>Inyecta una interfaz <code>StockChecker</code> (puerto) definida en Domain;
+                la implementación va en Infra
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq3',this,'c')">
+                <div class="mcq-radio"></div>Mueve la consulta al Handler antes de llamar al Creator
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq3',this,'d')">
+                <div class="mcq-radio"></div>Usa el <code>ProductRepository</code> ya inyectado en el Creator para leer
+                el stock
+              </button>
+            </div>
+          </div>
+
+          <div class="mcq-block" id="emcq4">
+            <div class="mcq-q">4. Al confirmar un pedido, necesitas enviar un email. ¿Dónde pones esa lógica?</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq3('emcq4',this,'a')">
+                <div class="mcq-radio"></div>En <code>Order::confirm()</code> — el Aggregate dispara el email
+                directamente
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq4',this,'b')">
+                <div class="mcq-radio"></div>En el Handler, con <code>Mail::send()</code> después de persistir
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq4',this,'c')">
+                <div class="mcq-radio"></div>El Aggregate emite un <code>OrderConfirmed</code> Domain Event; un Listener
+                de Infra reacciona enviando el email
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq4',this,'d')">
+                <div class="mcq-radio"></div>En el Controller, después de llamar al Handler
+              </button>
+            </div>
+          </div>
+
+          <div class="mcq-block" id="emcq5">
+            <div class="mcq-q">5. ¿Qué test cubre mejor que <code>OrderCreator</code> lanza <code>ProductNotFound</code>
+              cuando el producto no existe?</div>
+            <div class="mcq-opts">
+              <button class="mcq-opt" onclick="pickMcq3('emcq5',this,'a')">
+                <div class="mcq-radio"></div>Feature Test via <code>POST /api/orders</code> con producto inexistente
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq5',this,'b')">
+                <div class="mcq-radio"></div>Integration Test con <code>RefreshDatabase</code> y sin datos en BD
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq5',this,'c')">
+                <div class="mcq-radio"></div>Unit Test:
+                <code>new OrderCreator(new InMemoryProductRepository(), ...)</code> con repo vacío
+              </button>
+              <button class="mcq-opt" onclick="pickMcq3('emcq5',this,'d')">
+                <div class="mcq-radio"></div>No hace falta testear — el tipo <code>ProductId</code> ya garantiza que el
+                ID es válido
+              </button>
+            </div>
+          </div>
+
+          <div class="ex-actions">
+            <button class="btn-check" onclick="checkEdgeMcqs()">Comprobar</button>
+            <button class="btn-reset" onclick="resetEdgeMcqs()">Reiniciar</button>
+          </div>
+          <div class="ex-fb" id="ex6fb"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="cap5.html">← Cap 05 · CQRS</a><a class="pager-btn" href="referencia.html">Referencia →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+// ════ EX6 — EDGE CASES MCQ ════
+    const EDGE_ANS = { emcq1: 'b', emcq2: 'b', emcq3: 'b', emcq4: 'c', emcq5: 'c' };
+    const EDGE_EXPLAIN = {
+      emcq1: '1: Domain Service — opera entre Customer y Order. Customer::isVip() solo si la lógica es interna al aggregate.',
+      emcq2: '2: Entity — identidad única (código), estado mutable (usado/no), ciclo de vida. No es VO.',
+      emcq3: '3: Interfaz StockChecker en Domain, impl en Infra. Nunca DB:: directo en el dominio.',
+      emcq4: '4: Aggregate emite OrderConfirmed → Listener en Infra envía email. El dominio no sabe nada de emails.',
+      emcq5: '5: Unit Test con InMemoryProductRepository vacío — rápido, sin BD, prueba exactamente la invariante.',
+    };
+    const edgeSel = {};
+    function pickMcq3(blockId, btn, val) {
+      const block = document.getElementById(blockId);
+      if (block.querySelector('.ok') || block.querySelector('.bad')) return;
+      block.querySelectorAll('.mcq-opt').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel'); edgeSel[blockId] = val;
+    }
+    function checkEdgeMcqs() {
+      let ok = 0, total = Object.keys(EDGE_ANS).length;
+      Object.entries(EDGE_ANS).forEach(([bid, ans]) => {
+        const block = document.getElementById(bid);
+        if (!block) return;
+        block.querySelectorAll('.mcq-opt').forEach(b => {
+          const v = b.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1];
+          if (v === ans) b.classList.add('ok');
+          else if (v === edgeSel[bid] && edgeSel[bid] !== ans) b.classList.add('bad');
+        });
+        if (edgeSel[bid] === ans) ok++;
+      });
+      const fb = document.getElementById('ex6fb');
+      const wrong = Object.entries(EDGE_ANS).filter(([bid]) => edgeSel[bid] !== EDGE_ANS[bid]).map(([bid]) => EDGE_EXPLAIN[bid]);
+      if (ok === total) {
+        fb.textContent = '✓ ¡Perfecto! Dominas todos los escenarios edge de arquitectura DDD/CQRS.';
+        fb.className = 'ex-fb show pass'; award(20, 'ex6');
+      } else {
+        fb.innerHTML = `✗ ${ok}/${total}.<br>${wrong.join('<br>')}`;
+        fb.className = 'ex-fb show fail';
+      }
+    }
+    function resetEdgeMcqs() {
+      Object.keys(EDGE_ANS).forEach(id => {
+        document.getElementById(id)?.querySelectorAll('.mcq-opt').forEach(b => b.className = 'mcq-opt');
+        delete edgeSel[id];
+      });
+      document.getElementById('ex6fb').className = 'ex-fb';
+    }
+
+function resetPageExercises() {
+  resetEdgeMcqs();
+}
+</script>
+</body>
+</html>

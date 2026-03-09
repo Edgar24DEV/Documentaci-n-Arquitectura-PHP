@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cap 05 · CQRS · Arquitectura PHP</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+    .pager { max-width: 1100px; margin: 0 auto; padding: 48px 48px 0; display: flex; justify-content: space-between; align-items: center; }
+    .pager-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 10px 20px; border: 1px solid var(--line); transition: all .2s; }
+    .pager-btn:hover { color: var(--paper); border-color: var(--r); }
+    @media (max-width: 600px) { .pager { padding: 32px 24px 0; } .pager-btn { font-size: 10px; padding: 8px 14px; } }
+</style>
+<script>
+(function(){const t=localStorage.getItem('arq_php_theme')||(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);})();
+</script>
+</head>
+<body>
+  <nav class="topnav" id="topnav">
+    <div class="topnav-inner">
+      <div class="nav-logo" onclick="location.href='index.html'" style="cursor:pointer">arch<span>.</span>php</div>
+      <div class="nav-links">
+        <a href="index.html">Inicio</a>
+        <a href="cap1.html">Clean Code</a>
+        <a href="cap2.html">SOLID</a>
+        <a href="cap3.html">Hexagonal</a>
+        <a href="cap4.html">DDD</a>
+        <a href="cap5.html">CQRS</a>
+        <a href="cap6.html">Testing</a>
+        <a href="referencia.html">Referencia</a>
+      </div>
+      <div class="nav-right">
+        <div class="score-chip">⬡ <span class="score-chip-val" id="scoreDisplay">0</span> / 120 pts</div>
+        <button class="btn-reset-all" onclick="resetAll()">↺ Reset</button>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      </div>
+    </div>
+  </nav>
+  <div class="progress-rail"><div class="progress-fill" id="pFill"></div></div>
+  <div class="page">
+    <section id="cqrs">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Capítulo 05</div>
+          <h2 class="ch-h2"><span class="ac-y">CQRS</span> +<br>Creator / Updater</h2>
+          <p class="ch-lead">Commands con primitivos reutilizables. Handlers que orquestan sin persistir. Creator y
+            Updater como únicos dueños de la escritura.</p>
+        </div>
+        <div class="ch-badge">20 puntos</div>
+      </div>
+
+      <div class="cqrs-flow">
+        <div class="cqrs-col">
+          <div
+            style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--b);margin-bottom:8px">
+            Write Side</div>
+          <div class="cqrs-box cqrs-cmd">Command (primitivos)</div>
+          <div class="cqrs-arr">↓</div>
+          <div class="cqrs-box cqrs-hnd">Handler (orquesta)</div>
+          <div class="cqrs-arr">↓ construye VOs</div>
+          <div class="cqrs-box cqrs-agg" style="border-color:rgba(31,166,114,.4);color:var(--g)">OrderCreator</div>
+          <div class="cqrs-arr">↓ persiste</div>
+          <div class="cqrs-box" style="border-color:rgba(124,58,237,.4);color:var(--p)">Write DB</div>
+        </div>
+        <div class="cqrs-sep">
+          <div class="cqrs-line"></div><span>EVENT<br>BUS</span>
+          <div class="cqrs-line"></div>
+        </div>
+        <div class="cqrs-col">
+          <div
+            style="font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--g);margin-bottom:8px">
+            Read Side</div>
+          <div class="cqrs-box cqrs-qry">Query (primitivos)</div>
+          <div class="cqrs-arr">↓</div>
+          <div class="cqrs-box cqrs-hnd">Handler (orquesta)</div>
+          <div class="cqrs-arr">↓ construye VOs</div>
+          <div class="cqrs-box cqrs-qry">Finder → Querier</div>
+          <div class="cqrs-arr">↓</div>
+          <div class="cqrs-box" style="border-color:rgba(124,58,237,.4);color:var(--p)">DTO</div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">Value Objects con <code>::create()</code> estático</h3>
+      <div class="prose">
+        <p>Los VOs <strong>nunca se instancian con <code>new</code> desde fuera</strong>. El constructor es privado y la
+          creación pasa siempre por el método estático <code>::create()</code>, que centraliza la validación. Así es
+          imposible construir un VO inválido.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Shared/Domain/ValueObjects/Money.php</span>
+        </div>
+        <pre><span class="kw">final class</span> <span class="cl">Money</span>
+{
+    <span class="cm">// Constructor privado: nadie puede hacer new Money()</span>
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="ph">int</span>    <span class="pr">$cents</span>,
+        <span class="kw">private readonly</span> <span class="ph">string</span> <span class="pr">$currency</span>,
+    ) {}
+
+    <span class="kw">public function</span> <span class="fn">dddGetCents</span>(): <span class="ph">int</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">cents</span>; }
+    <span class="kw">public function</span> <span class="fn">dddGetCurrency</span>(): <span class="ph">string</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">currency</span>; }
+
+    <span class="cm">// Única puerta de entrada — valida antes de construir</span>
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="ph">int</span> <span class="pr">$cents</span>, <span class="ph">string</span> <span class="pr">$currency</span>): <span class="kw">self</span>
+    {
+        <span class="kw">if</span> (<span class="pr">$cents</span> < <span class="nm">0</span>)
+            <span class="kw">throw new</span> <span class="cl">InvalidArgumentException</span>(<span class="str">'El importe no puede ser negativo'</span>);
+        <span class="kw">if</span> (!<span class="fn">preg_match</span>(<span class="str">'/^[A-Z]{3}$/'</span>, <span class="pr">$currency</span>))
+            <span class="kw">throw new</span> <span class="cl">InvalidArgumentException</span>(<span class="str">"Moneda inválida: {$currency}"</span>);
+
+        <span class="kw">return new self</span>(<span class="pr">$cents</span>, <span class="pr">$currency</span>);
+    }
+
+    <span class="kw">public static function</span> <span class="fn">zero</span>(<span class="ph">string</span> <span class="pr">$currency</span>): <span class="kw">self</span>
+    {
+        <span class="kw">return self</span>::<span class="fn">create</span>(<span class="nm">0</span>, <span class="pr">$currency</span>);
+    }
+
+    <span class="kw">public function</span> <span class="fn">add</span>(<span class="cl">Money</span> <span class="pr">$other</span>): <span class="kw">self</span>
+    {
+        <span class="kw">if</span> (<span class="kw">$this</span>-><span class="pr">currency</span> !== <span class="pr">$other</span>-><span class="fn">dddGetCurrency</span>())
+            <span class="kw">throw new</span> <span class="cl">InvalidArgumentException</span>(<span class="str">'No se pueden sumar monedas distintas'</span>);
+
+        <span class="kw">return self</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">cents</span> + <span class="pr">$other</span>-><span class="fn">dddGetCents</span>(), <span class="kw">$this</span>-><span class="pr">currency</span>);
+    }
+
+    <span class="kw">public function</span> <span class="fn">applyDiscount</span>(<span class="ph">float</span> <span class="pr">$rate</span>): <span class="kw">self</span>
+    {
+        <span class="kw">return self</span>::<span class="fn">create</span>(<span class="ph">intval</span>(<span class="kw">$this</span>-><span class="pr">cents</span> * (<span class="nm">1</span> - <span class="pr">$rate</span>)), <span class="kw">$this</span>-><span class="pr">currency</span>);
+    }
+}
+
+<span class="cm">// Todos los VOs siguen el mismo patrón:</span>
+<span class="kw">final class</span> <span class="cl">CustomerId</span>
+{
+    <span class="kw">private function</span> <span class="fn">__construct</span>(<span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$value</span>) {}
+
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="ph">string</span> <span class="pr">$value</span>): <span class="kw">self</span>
+    {
+        <span class="kw">if</span> (!<span class="cl">Uuid</span>::<span class="fn">isValid</span>(<span class="pr">$value</span>))
+            <span class="kw">throw new</span> <span class="cl">InvalidArgumentException</span>(<span class="str">"CustomerId inválido: {$value}"</span>);
+        <span class="kw">return new self</span>(<span class="pr">$value</span>);
+    }
+
+    <span class="kw">public static function</span> <span class="fn">generate</span>(): <span class="kw">self</span>
+    {
+        <span class="kw">return new self</span>(<span class="ph">Str</span>::<span class="fn">uuid</span>());
+    }
+}</pre>
+      </div>
+
+      <h3 class="sec-title">Command con primitivos — los VOs se crean dentro del Command</h3>
+      <div class="callout info"><span class="callout-icon">💡</span>
+        <div><strong>El Command recibe primitivos pero <em>expone</em> VOs.</strong> El constructor acepta tipos simples
+          (reutilizable desde cualquier contexto), pero los convierte a VOs internamente. El Handler accede a
+          <code>$cmd->customerId()</code> y ya recibe un <code>CustomerId</code> — sin conversiones en ningún sitio
+          externo.
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab-bar">
+          <button class="tab-btn on" onclick="tab(this,'cmd-http')">Desde HTTP Controller</button>
+          <button class="tab-btn" onclick="tab(this,'cmd-artisan')">Desde Artisan Command</button>
+          <button class="tab-btn" onclick="tab(this,'cmd-job')">Desde un Job</button>
+        </div>
+        <div class="tab-pane on" id="cmd-http">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">Order/Application/PlaceOrder/PlaceOrderCommand.php</span>
+            </div>
+            <pre><span class="cm">// ✅ Recibe primitivos → expone VOs — reutilizable desde cualquier capa</span>
+<span class="kw">final class</span> <span class="cl">PlaceOrderCommand</span>
+{
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">CustomerId</span>    <span class="pr">$customerId</span>,
+        <span class="kw">private readonly</span> <span class="cl">OrderItemList</span> <span class="pr">$items</span>,
+        <span class="kw">private readonly</span> <span class="cl">Currency</span>      <span class="pr">$currency</span>,
+    ) {}
+
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="ph">string</span> <span class="pr">$customerId</span>, <span class="ph">array</span> <span class="pr">$items</span>, <span class="ph">string</span> <span class="pr">$currency</span>): <span class="kw">self</span>
+    {
+        <span class="kw">return new self</span>(
+            <span class="cl">CustomerId</span>::<span class="fn">create</span>(<span class="pr">$customerId</span>),
+            <span class="cl">OrderItemList</span>::<span class="fn">create</span>(<span class="pr">$items</span>),
+            <span class="cl">Currency</span>::<span class="fn">create</span>(<span class="pr">$currency</span>)
+        );
+    }
+
+    <span class="kw">public function</span> <span class="fn">dddGetCustomerId</span>(): <span class="cl">CustomerId</span>    { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">customerId</span>; }
+    <span class="kw">public function</span> <span class="fn">dddGetItems</span>():      <span class="cl">OrderItemList</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">items</span>; }
+    <span class="kw">public function</span> <span class="fn">dddGetCurrency</span>():   <span class="cl">Currency</span>      { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">currency</span>; }
+}
+
+<span class="cm">// Controller: pasa strings — el Command se encarga de la conversión</span>
+<span class="kw">class</span> <span class="cl">OrderController</span> <span class="kw">extends</span> <span class="cl">Controller</span>
+{
+    <span class="kw">public function</span> <span class="fn">store</span>(<span class="cl">StoreOrderRequest</span> <span class="pr">$request</span>, <span class="cl">PlaceOrderHandler</span> <span class="pr">$handler</span>)
+    {
+        <span class="pr">$orderId</span> = <span class="pr">$handler</span>-><span class="fn">handle</span>(<span class="cl">PlaceOrderCommand</span>::<span class="fn">create</span>(
+            customerId: <span class="fn">auth</span>()->id(),
+            items:      <span class="pr">$request</span>-><span class="fn">validated</span>(<span class="str">'items'</span>),
+            currency:   <span class="pr">$request</span>-><span class="fn">validated</span>(<span class="str">'currency'</span>, <span class="str">'EUR'</span>),
+        ));
+        <span class="kw">return</span> <span class="fn">response</span>()-><span class="fn">json</span>([<span class="str">'id'</span> => <span class="pr">$orderId</span>-><span class="fn">value</span>()], <span class="nm">201</span>);
+    }
+}</pre>
+          </div>
+        </div>
+        <div class="tab-pane" id="cmd-artisan">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">Infrastructure/Console/PlaceTestOrderCommand.php</span>
+            </div>
+            <pre><span class="cm">// Artisan: mismo PlaceOrderCommand, los strings van directo al constructor</span>
+<span class="kw">class</span> <span class="cl">PlaceTestOrderCommand</span> <span class="kw">extends</span> <span class="cl">Command</span>
+{
+    <span class="kw">protected</span> <span class="pr">$signature</span> = <span class="str">'order:place-test {customerId} {--currency=EUR}'</span>;
+
+    <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">PlaceOrderHandler</span> <span class="pr">$handler</span>): <span class="ph">int</span>
+    {
+        <span class="cm">// Sin DTOs, sin adaptaciones — el Command convierte internamente</span>
+        <span class="pr">$orderId</span> = <span class="pr">$handler</span>-><span class="fn">handle</span>(<span class="cl">PlaceOrderCommand</span>::<span class="fn">create</span>(
+            customerId: <span class="kw">$this</span>-><span class="fn">argument</span>(<span class="str">'customerId'</span>),
+            items:      [[<span class="str">'productId'</span> => <span class="str">'test-product'</span>, <span class="str">'quantity'</span> => <span class="nm">1</span>]],
+            currency:   <span class="kw">$this</span>-><span class="fn">option</span>(<span class="str">'currency'</span>),
+        ));
+        <span class="kw">$this</span>-><span class="fn">info</span>(<span class="str">"Pedido creado: {$orderId->value()}"</span>);
+        <span class="kw">return</span> <span class="cl">Command</span>::<span class="pr">SUCCESS</span>;
+    }
+}</pre>
+          </div>
+        </div>
+        <div class="tab-pane" id="cmd-job">
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">Infrastructure/Jobs/ProcessBulkOrdersJob.php</span>
+            </div>
+            <pre><span class="cm">// Job en background: igual — pasa primitivos, Command construye VOs</span>
+<span class="kw">class</span> <span class="cl">ProcessBulkOrdersJob</span> <span class="kw">implements</span> <span class="cl">ShouldQueue</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="ph">string</span> <span class="pr">$customerId</span>,
+        <span class="kw">private readonly</span> <span class="ph">array</span>  <span class="pr">$importedItems</span>,
+    ) {}
+
+    <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">PlaceOrderHandler</span> <span class="pr">$handler</span>): <span class="ph">void</span>
+    {
+        <span class="pr">$handler</span>-><span class="fn">handle</span>(<span class="cl">PlaceOrderCommand</span>::<span class="fn">create</span>(
+            customerId: <span class="kw">$this</span>-><span class="pr">customerId</span>,
+            items:      <span class="kw">$this</span>-><span class="pr">importedItems</span>,
+            currency:   <span class="str">'EUR'</span>,
+        ));
+    }
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sec-title">Handler sin persistencia — Creator como Domain Service</h3>
+      <div class="callout info"><span class="callout-icon">💡</span>
+        <div><strong>Creator en Domain, no en Application.</strong> El <code>OrderCreator</code> es un <strong>Domain
+            Service</strong>: solo construye el Aggregate con reglas puras, sin repositorios. El Handler orquesta: llama
+          a <code>$cmd->dddGetCustomerId()</code> (ya es un VO, construido en el Command), pasa los VOs al Creator, y
+          persiste
+          el resultado. Ninguna capa convierte primitivos a VOs excepto el propio Command.</div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Order/Domain/Services/OrderCreator.php — Domain Service
+            (puro)</span>
+        </div>
+        <pre><span class="cm">// ✅ Domain Service — sin repositorios, sin infraestructura</span>
+<span class="cm">// Solo conoce las reglas de negocio de "construir un pedido válido"</span>
+<span class="kw">final class</span> <span class="cl">OrderCreator</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">ProductRepository</span>   <span class="pr">$products</span>,   <span class="cm">// port, no Eloquent</span>
+        <span class="kw">private readonly</span> <span class="cl">OrderPricingService</span> <span class="pr">$pricing</span>,    <span class="cm">// otro Domain Service</span>
+    ) {}
+
+    <span class="cm">// Devuelve el Aggregate construido — NO persiste</span>
+    <span class="kw">public function</span> <span class="fn">create</span>(<span class="cl">CustomerId</span> <span class="pr">$customerId</span>, <span class="cl">OrderItemList</span> <span class="pr">$items</span>, <span class="cl">Currency</span> <span class="pr">$currency</span>): <span class="cl">Order</span>
+    {
+        <span class="pr">$order</span> = <span class="cl">Order</span>::<span class="fn">create</span>(<span class="pr">$customerId</span>, <span class="pr">$currency</span>);
+
+        <span class="kw">foreach</span> (<span class="pr">$items</span>-><span class="fn">all</span>() <span class="kw">as</span> <span class="pr">$item</span>) {
+            <span class="cm">// ProductRepository es una interfaz — el Creator no sabe si es Eloquent o InMemory</span>
+            <span class="pr">$product</span> = <span class="kw">$this</span>-><span class="pr">products</span>-><span class="fn">findById</span>(<span class="pr">$item</span>-><span class="fn">dddGetProductId</span>())
+                ?? <span class="kw">throw new</span> <span class="cl">ProductNotFound</span>(<span class="pr">$item</span>-><span class="fn">dddGetProductId</span>());
+
+            <span class="pr">$price</span> = <span class="kw">$this</span>-><span class="pr">pricing</span>-><span class="fn">priceFor</span>(<span class="pr">$product</span>, <span class="pr">$item</span>-><span class="fn">dddGetQuantity</span>());
+            <span class="pr">$order</span>-><span class="fn">addItem</span>(<span class="pr">$product</span>, <span class="pr">$item</span>-><span class="fn">dddGetQuantity</span>(), <span class="pr">$price</span>);
+        }
+
+        <span class="kw">return</span> <span class="pr">$order</span>;  <span class="cm">// ← devuelve el objeto, no persiste</span>
+    }
+}</pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Order/Application/PlaceOrder/PlaceOrderHandler.php</span>
+        </div>
+        <pre><span class="cm">// Handler: construye VOs → llama al Creator (Domain) → persiste (Application)</span>
+<span class="kw">final class</span> <span class="cl">PlaceOrderHandler</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">OrderCreator</span>    <span class="pr">$creator</span>,  <span class="cm">// Domain Service</span>
+        <span class="kw">private readonly</span> <span class="cl">OrderRepository</span> <span class="pr">$orders</span>,   <span class="cm">// Output port</span>
+        <span class="kw">private readonly</span> <span class="cl">EventDispatcher</span> <span class="pr">$events</span>,   <span class="cm">// Output port</span>
+    ) {}
+
+    <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">PlaceOrderCommand</span> <span class="pr">$cmd</span>): <span class="cl">OrderId</span>
+    {
+        <span class="cm">// Los VOs ya vienen construidos desde el Command — sin conversión aquí</span>
+        <span class="pr">$order</span> = <span class="kw">$this</span>-><span class="pr">creator</span>-><span class="fn">create</span>(
+            <span class="pr">$cmd</span>-><span class="fn">dddGetCustomerId</span>(),  <span class="cm">// CustomerId VO</span>
+            <span class="pr">$cmd</span>-><span class="fn">dddGetItems</span>(),       <span class="cm">// OrderItemList VO</span>
+            <span class="pr">$cmd</span>-><span class="fn">dddGetCurrency</span>(),    <span class="cm">// Currency VO</span>
+        );
+
+        <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">save</span>(<span class="pr">$order</span>);
+        <span class="fn">array_map</span>(<span class="kw">fn</span>(<span class="pr">$e</span>) => <span class="kw">$this</span>-><span class="pr">events</span>-><span class="fn">dispatch</span>(<span class="pr">$e</span>), <span class="pr">$order</span>-><span class="fn">pullEvents</span>());
+
+        <span class="kw">return</span> <span class="pr">$order</span>-><span class="pr">id</span>;
+    }
+}
+
+<span class="kw">final class</span> <span class="cl">ConfirmOrderCommand</span>
+{
+    <span class="kw">private</span> <span class="cl">OrderId</span> <span class="pr">$orderId</span>;
+
+    <span class="kw">public function</span> <span class="fn">__construct</span>(<span class="ph">string</span> <span class="pr">$orderId</span>)
+    {
+        <span class="kw">$this</span>-><span class="pr">orderId</span> = <span class="cl">OrderId</span>::<span class="fn">create</span>(<span class="pr">$orderId</span>);  <span class="cm">// VO construido aquí</span>
+    }
+
+    <span class="kw">public function</span> <span class="fn">orderId</span>(): <span class="cl">OrderId</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">orderId</span>; }
+}
+
+<span class="kw">final class</span> <span class="cl">ConfirmOrderHandler</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">OrderRepository</span> <span class="pr">$orders</span>,
+        <span class="kw">private readonly</span> <span class="cl">EventDispatcher</span> <span class="pr">$events</span>,
+    ) {}
+
+    <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">ConfirmOrderCommand</span> <span class="pr">$cmd</span>): <span class="ph">void</span>
+    {
+        <span class="cm">// $cmd->orderId() ya ES un OrderId — el Command lo construyó</span>
+        <span class="pr">$order</span> = <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">findById</span>(<span class="pr">$cmd</span>-><span class="fn">orderId</span>())
+            ?? <span class="kw">throw new</span> <span class="cl">OrderNotFound</span>(<span class="pr">$cmd</span>-><span class="fn">orderId</span>());
+
+        <span class="pr">$order</span>-><span class="fn">confirm</span>();
+
+        <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">save</span>(<span class="pr">$order</span>);
+        <span class="fn">array_map</span>(<span class="kw">fn</span>(<span class="pr">$e</span>) => <span class="kw">$this</span>-><span class="pr">events</span>-><span class="fn">dispatch</span>(<span class="pr">$e</span>), <span class="pr">$order</span>-><span class="fn">pullEvents</span>());
+    }
+}</pre>
+      </div>
+
+      <div class="callout tip"><span class="callout-icon">✅</span>
+        <div><strong>La clave:</strong> <code>OrderCreator</code> (Domain Service) no sabe nada de persistencia —
+          devuelve el Aggregate. El Handler persiste el resultado. <strong>Los VOs se construyen en el Command/Query —
+            el Handler los consume ya validados.</strong> Ninguna capa externa hace <code>::create()</code> excepto el
+          propio Command o Query.</div>
+      </div>
+
+      <h3 class="sec-title">Query con primitivos — mismo patrón</h3>
+      <div class="callout warn"><span class="callout-icon">⚠️</span>
+        <div><strong>Patrón idéntico en el Read Side.</strong> La Query recibe primitivos y expone VOs mediante métodos.
+          El Handler llama a <code>$q->dddGetOrderId()</code> y ya recibe un <code>OrderId</code> — sin construcciones
+          en el
+          Handler.</div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Order/Application/Find/GetOrderQuery.php +
+            GetOrderHandler.php</span>
+        </div>
+        <pre><span class="cm">// Query: recibe primitivos, expone VOs — reutilizable desde cualquier contexto</span>
+<span class="kw">final class</span> <span class="cl">GetOrderQuery</span>
+{
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">OrderId</span> <span class="pr">$orderId</span>,
+        <span class="kw">private readonly</span> <span class="cl">UserId</span>  <span class="pr">$requesterId</span>,
+    ) {}
+
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="ph">string</span> <span class="pr">$orderId</span>, <span class="ph">string</span> <span class="pr">$requesterId</span>): <span class="kw">self</span>
+    {
+        <span class="kw">return new self</span>(
+            <span class="cl">OrderId</span>::<span class="fn">create</span>(<span class="pr">$orderId</span>),
+            <span class="cl">UserId</span>::<span class="fn">create</span>(<span class="pr">$requesterId</span>)
+        );
+    }
+
+    <span class="kw">public function</span> <span class="fn">dddGetOrderId</span>():     <span class="cl">OrderId</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">orderId</span>; }
+    <span class="kw">public function</span> <span class="fn">dddGetRequesterId</span>(): <span class="cl">UserId</span>   { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">requesterId</span>; }
+}
+
+<span class="kw">final class</span> <span class="cl">GetOrderHandler</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">OrderFinder</span>               <span class="pr">$finder</span>,
+        <span class="kw">private readonly</span> <span class="cl">OrderQuerier</span>              <span class="pr">$querier</span>,
+        <span class="kw">private readonly</span> <span class="cl">OrderAuthorizationService</span> <span class="pr">$authz</span>,
+    ) {}
+
+    <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">GetOrderQuery</span> <span class="pr">$q</span>): <span class="cl">OrderSummaryDTO</span>
+{
+    <span class="cm">// VOs vienen de la Query — sin conversión en el Handler</span>
+    <span class="pr">$order</span> = <span class="kw">$this</span>-><span class="pr">finder</span>-><span class="fn">findOrFail</span>(<span class="pr">$q</span>-><span class="fn">dddGetOrderId</span>());
+    <span class="kw">$this</span>-><span class="pr">authz</span>-><span class="fn">ensureCanView</span>(<span class="pr">$q</span>-><span class="fn">dddGetRequesterId</span>(), <span class="pr">$order</span>);
+    <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">querier</span>-><span class="fn">getSummary</span>(<span class="pr">$q</span>-><span class="fn">dddGetOrderId</span>());
+}
+}
+
+<span class="cm">// Querier: interface en Application, implementación en Infra</span>
+<span class="kw">interface</span> <span class="cl">OrderQuerier</span>
+{
+    <span class="kw">public function</span> <span class="fn">getSummary</span>(<span class="cl">OrderId</span> <span class="pr">$id</span>): <span class="cl">OrderSummaryDTO</span>;
+    <span class="cm">/** @return OrderSummaryDTO[] */</span>
+    <span class="kw">public function</span> <span class="fn">findByCustomer</span>(<span class="cl">CustomerId</span> <span class="pr">$id</span>): <span class="ph">array</span>;
+}</pre>
+      </div>
+
+      <!-- EX 5 — ARCHITECTURE DEBUG -->
+      <div class="ex-wrap" id="ex5">
+        <div class="ex-head"><span class="ex-tag">Ejercicio 5</span><span class="ex-title-text">Arquitectura —
+            Identifica las 5 violaciones reales</span><span class="ex-pts">20 pts</span></div>
+        <div class="ex-body">
+          <div class="ex-desc">Este Handler tiene <strong>5 violaciones arquitectónicas graves</strong> entre 8 opciones
+            posibles. Identifica únicamente las que rompen principios de arquitectura de alto nivel (DIP, DDD, Clean
+            Architecture).</div>
+          <div class="code-block">
+            <div class="code-bar">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div><span class="code-fname">PlaceOrderHandler.php — con bugs</span>
+            </div>
+            <pre><span class="kw">final class</span> <span class="cl">PlaceOrderHandler</span>
+{
+    <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">PlaceOrderCommand</span> <span class="pr">$cmd</span>): <span class="ph">array</span>
+    {
+        <span class="cm">// Construye el pedido</span>
+        <span class="pr">$order</span> = <span class="cl">Order</span>::<span class="fn">create</span>(
+            <span class="kw">new</span> <span class="cl">CustomerId</span>(<span class="pr">$cmd</span>-><span class="fn">dddGetCustomerId</span>()),  <span class="cm">// (1) Viola regla VO</span>
+            <span class="kw">new</span> <span class="cl">Currency</span>(<span class="pr">$cmd</span>-><span class="fn">dddGetCurrency</span>()),     <span class="cm">// (1) Viola regla VO</span>
+        );
+
+        <span class="kw">foreach</span> (<span class="pr">$cmd</span>-><span class="fn">dddGetItems</span>() <span class="kw">as</span> <span class="pr">$item</span>) {
+            <span class="pr">$product</span> = <span class="cl">DB</span>::<span class="fn">table</span>(<span class="str">'products'</span>)         <span class="cm">// (2) Viola DIP</span>
+                -><span class="fn">where</span>(<span class="str">'id'</span>, <span class="pr">$item</span>-><span class="fn">dddGetProductId</span>())
+                -><span class="fn">first</span>();
+            <span class="pr">$order</span>-><span class="fn">addItem</span>(<span class="pr">$product</span>, <span class="pr">$item</span>-><span class="fn">dddGetQuantity</span>());
+        }
+
+        <span class="cm">// Persiste directamente</span>
+        <span class="cl">OrderModel</span>::<span class="fn">create</span>([                          <span class="cm">// (3) Viola DDD/Application</span>
+            <span class="str">'customer_id'</span> => <span class="pr">$cmd</span>-><span class="fn">dddGetCustomerId</span>()-><span class="fn">value</span>(),
+            <span class="str">'total'</span>       => <span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">dddGetCents</span>(),
+        ]);
+
+        <span class="cm">// Envía email</span>
+        <span class="cl">Mail</span>::<span class="fn">to</span>(<span class="pr">$cmd</span>-><span class="fn">dddGetEmail</span>())-><span class="fn">send</span>(<span class="cl">OrderPlaced</span>::<span class="fn">create</span>());  <span class="cm">// (4) Acoplo Infra</span>
+
+        <span class="kw">return</span> [<span class="str">'id'</span> => <span class="pr">$order</span>-><span class="pr">id</span>-><span class="fn">value</span>()];           <span class="cm">// (5) Viola CQRS/VOs</span>
+    }
+}</pre>
+          </div>
+          <div class="opt-grid" id="ex5opts">
+            <button class="opt-btn" data-v="A" onclick="toggleOpt('ex5opts',this)">A: Los VOs se instancian con
+              <code>new</code> en vez de <code>::create()</code></button>
+            <button class="opt-btn" data-v="B" onclick="toggleOpt('ex5opts',this)">B: Acceso directo a DB:: — viola DIP,
+              no hay repositorio</button>
+            <button class="opt-btn" data-v="C" onclick="toggleOpt('ex5opts',this)">C: Persistencia directa vía Eloquent
+              en el Handler — viola responsabilidades</button>
+            <button class="opt-btn" data-v="D" onclick="toggleOpt('ex5opts',this)">D: Uso de Mail:: facade —
+              acoplamiento directo a infraestructura</button>
+            <button class="opt-btn" data-v="E" onclick="toggleOpt('ex5opts',this)">E: El Handler devuelve un array —
+              viola la regla de retornar VOs o DTOs</button>
+            <button class="opt-btn" data-v="F" onclick="toggleOpt('ex5opts',this)">F: El Handler es una clase
+              <code>final</code> — esto es una mala práctica</button>
+            <button class="opt-btn" data-v="G" onclick="toggleOpt('ex5opts',this)">G: El método <code>handle</code>
+              debería llamarse <code>execute</code></button>
+            <button class="opt-btn" data-v="H" onclick="toggleOpt('ex5opts',this)">H: Usa <code>foreach</code> en lugar
+              de <code>collection->map()</code></button>
+          </div>
+          <div class="ex-actions">
+            <button class="btn-check"
+              onclick="checkMulti('ex5opts',['A','B','C','D','E'],'ex5fb',20,'ex5')">Comprobar</button>
+            <button class="btn-reset" onclick="resetMulti('ex5opts','ex5fb')">Reiniciar</button>
+          </div>
+          <div class="ex-fb" id="ex5fb"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+  </div>
+  <div class="pager"><a class="pager-btn" href="cap4.html">← Cap 04 · DDD</a><a class="pager-btn" href="cap6.html">Cap 06 · Testing →</a></div>
+
+  <footer>
+    <div>
+      <div class="footer-quote">"El buen software es aquel que puedes cambiar sin miedo."</div>
+      <div class="footer-by">— Martin Fowler</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--line);text-align:right;line-height:2">
+      Clean Code · SOLID<br>Hexagonal · DDD · CQRS<br>Testing · PHP 8.3 · Laravel 11
+    </div>
+  </footer>
+<script src="shared.js"></script>
+<script>
+// ════ TABS ════
+    function tab(btn, id) {
+      btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      btn.closest('.tabs').querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
+      document.getElementById(id).classList.add('on');
+    }
+
+// ════ EX5 — ARCHITECTURE DEBUG — reuses toggleOpt/checkMulti/resetMulti ════
+
+function resetPageExercises() {
+  resetMulti('ex5opts','ex5fb');
+}
+
+function toggleOpt(gridId, btn) { if (btn.classList.contains('ok') || btn.classList.contains('bad')) return; btn.classList.toggle('sel'); }
+function checkMulti(gridId, correct, fbId, pts, exId) {
+  const grid = document.getElementById(gridId);
+  const sel = [...grid.querySelectorAll('.opt-btn.sel')].map(b => b.dataset.v);
+  const missing = correct.filter(c => !sel.includes(c));
+  const extra = sel.filter(c => !correct.includes(c));
+  grid.querySelectorAll('.opt-btn').forEach(b => { if (correct.includes(b.dataset.v)) b.classList.add('ok'); else if (sel.includes(b.dataset.v)) b.classList.add('bad'); });
+  const fb = document.getElementById(fbId);
+  if (!missing.length && !extra.length) { fb.textContent = '✓ ¡Perfecto! Has identificado todos los bugs de arquitectura.'; fb.className = 'ex-fb show pass'; award(pts, exId); }
+  else { fb.textContent = '✗ Casi. ' + (missing.length ? 'Faltaban: ' + missing.join(', ') + '. ' : '') + (extra.length ? 'No son bugs: ' + extra.join(', ') + '.' : ''); fb.className = 'ex-fb show fail'; }
+}
+function resetMulti(gridId, fbId) { document.getElementById(gridId).querySelectorAll('.opt-btn').forEach(b => b.className = 'opt-btn'); document.getElementById(fbId).className = 'ex-fb'; }
+
+</script>
+</body>
+</html>
