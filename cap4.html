@@ -99,7 +99,7 @@
         <pre><span class="kw">final class</span> <span class="cl">Order</span>
 {
     <span class="kw">private</span> <span class="ph">array</span>       <span class="pr">$items</span>  = [];
-    <span class="kw">private</span> <span class="ph">array</span>       <span class="pr">$events</span> = [];
+    <span class="kw">private</span> <span class="ph">array</span>       <span class="pr">$domainEvents</span> = [];
     <span class="kw">private</span> <span class="cl">OrderStatus</span> <span class="pr">$status</span>;
 
     <span class="kw">private function</span> <span class="fn">__construct</span>(
@@ -107,50 +107,117 @@
         <span class="kw">public readonly</span> <span class="cl">CustomerId</span> <span class="pr">$customerId</span>,
         <span class="kw">public readonly</span> <span class="cl">Currency</span>   <span class="pr">$currency</span>,
     ) {
-        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="pr">PENDING</span>;
+        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="fn">pending</span>();
     }
 
-    <span class="cm">// Todos los VOs: constructor privado, entrada por ::create()</span>
     <span class="kw">public static function</span> <span class="fn">create</span>(<span class="cl">CustomerId</span> <span class="pr">$customerId</span>, <span class="cl">Currency</span> <span class="pr">$currency</span>): <span class="kw">self</span>
     {
         <span class="pr">$order</span> = <span class="kw">new self</span>(<span class="cl">OrderId</span>::<span class="fn">generate</span>(), <span class="pr">$customerId</span>, <span class="pr">$currency</span>);
-        <span class="pr">$order</span>-><span class="fn">record</span>(<span class="cl">OrderCreated</span>::<span class="fn">create</span>(<span class="pr">$order</span>-><span class="pr">id</span>));
+        <span class="pr">$order</span>-><span class="fn">record</span>(<span class="cl">OrderCreated</span>::<span class="fn">create</span>(<span class="pr">$order</span>-><span class="pr">id</span>, <span class="pr">$customerId</span>));
         <span class="kw">return</span> <span class="pr">$order</span>;
     }
 
-    <span class="cm">// Invariante: no se puede añadir item a pedido confirmado</span>
     <span class="kw">public function</span> <span class="fn">addItem</span>(<span class="cl">Product</span> <span class="pr">$product</span>, <span class="cl">Quantity</span> <span class="pr">$quantity</span>): <span class="ph">void</span>
     {
-        <span class="kw">if</span> (<span class="kw">$this</span>-><span class="pr">status</span> !== <span class="cl">OrderStatus</span>::<span class="pr">PENDING</span>)
-            <span class="kw">throw new</span> <span class="cl">OrderAlreadyConfirmed</span>();
-
+        <span class="kw">$this</span>-><span class="fn">guardIsEditable</span>();  <span class="cm">// Guard con naming estándar</span>
         <span class="kw">$this</span>-><span class="pr">items</span>[] = <span class="cl">OrderItem</span>::<span class="fn">create</span>(<span class="pr">$product</span>, <span class="pr">$quantity</span>);
     }
 
-    <span class="cm">// Invariante: no se puede confirmar vacío</span>
     <span class="kw">public function</span> <span class="fn">confirm</span>(): <span class="ph">void</span>
     {
+        <span class="kw">$this</span>-><span class="fn">guardIsEditable</span>();
+        <span class="kw">$this</span>-><span class="fn">guardHasItems</span>();
+        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="fn">confirmed</span>();
+        <span class="kw">$this</span>-><span class="fn">record</span>(<span class="cl">OrderConfirmed</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">id</span>));
+    }
+
+    <span class="kw">public function</span> <span class="fn">cancel</span>(): <span class="ph">void</span>
+    {
+        <span class="kw">if</span> (<span class="kw">$this</span>-><span class="pr">status</span>-><span class="fn">isShipped</span>())
+            <span class="kw">throw new</span> <span class="cl">BusinessRuleViolationException</span>(
+                <span class="str">'Order cannot be cancelled after shipment'</span>,
+                [<span class="str">'order_id'</span> => <span class="kw">$this</span>-><span class="pr">id</span>-><span class="fn">value</span>()]
+            );
+        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="fn">cancelled</span>();
+        <span class="kw">$this</span>-><span class="fn">record</span>(<span class="cl">OrderCancelled</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">id</span>));
+    }
+
+    <span class="cm">// ═══ GUARDS — métodos privados para invariantes ═══</span>
+    <span class="kw">private function</span> <span class="fn">guardIsEditable</span>(): <span class="ph">void</span>
+    {
+        <span class="kw">if</span> (!<span class="kw">$this</span>-><span class="pr">status</span>-><span class="fn">isEditable</span>())
+            <span class="kw">throw new</span> <span class="cl">BusinessRuleViolationException</span>(
+                <span class="str">'Order is not in an editable state'</span>,
+                [<span class="str">'status'</span> => <span class="kw">$this</span>-><span class="pr">status</span>-><span class="fn">value</span>()]
+            );
+    }
+
+    <span class="kw">private function</span> <span class="fn">guardHasItems</span>(): <span class="ph">void</span>
+    {
         <span class="kw">if</span> (empty(<span class="kw">$this</span>-><span class="pr">items</span>))
-            <span class="kw">throw new</span> <span class="cl">CannotConfirmEmptyOrder</span>();
-
-        <span class="kw">$this</span>-><span class="pr">status</span> = <span class="cl">OrderStatus</span>::<span class="pr">CONFIRMED</span>;
-        <span class="kw">$this</span>-><span class="fn">record</span>(<span class="cl">OrderConfirmed</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">id</span>, <span class="kw">$this</span>-><span class="fn">dddGetTotal</span>()));
+            <span class="kw">throw new</span> <span class="cl">BusinessRuleViolationException</span>(<span class="str">'Order must have at least one item'</span>);
     }
 
-    <span class="kw">public function</span> <span class="fn">total</span>(): <span class="cl">Money</span>
+    <span class="cm">// ═══ DOMAIN EVENTS ═══</span>
+    <span class="cm">/** @return DomainEvent[] */</span>
+    <span class="kw">public function</span> <span class="fn">pullDomainEvents</span>(): <span class="ph">array</span>
     {
-        <span class="kw">return</span> <span class="fn">array_reduce</span>(
-            <span class="kw">$this</span>-><span class="pr">items</span>,
-            <span class="kw">fn</span>(<span class="cl">Money</span> <span class="pr">$s</span>, <span class="cl">OrderItem</span> <span class="pr">$i</span>) => <span class="pr">$s</span>-><span class="fn">add</span>(<span class="pr">$i</span>-><span class="fn">subtotal</span>()),
-            <span class="cl">Money</span>::<span class="fn">zero</span>(<span class="kw">$this</span>-><span class="pr">currency</span>)
-        );
+        <span class="pr">$events</span> = <span class="kw">$this</span>-><span class="pr">domainEvents</span>;
+        <span class="kw">$this</span>-><span class="pr">domainEvents</span> = [];
+        <span class="kw">return</span> <span class="pr">$events</span>;
     }
 
-    <span class="kw">public function</span> <span class="fn">pullEvents</span>(): <span class="ph">array</span>
+    <span class="kw">private function</span> <span class="fn">record</span>(<span class="cl">DomainEvent</span> <span class="pr">$event</span>): <span class="ph">void</span>
     {
-        <span class="kw">return</span> <span class="fn">tap</span>(<span class="kw">$this</span>-><span class="pr">events</span>, <span class="kw">fn</span>() => <span class="kw">$this</span>-><span class="pr">events</span> = []);
+        <span class="kw">$this</span>-><span class="pr">domainEvents</span>[] = <span class="pr">$event</span>;
     }
-    <span class="kw">private function</span> <span class="fn">record</span>(<span class="ph">object</span> <span class="pr">$e</span>): <span class="ph">void</span> { <span class="kw">$this</span>-><span class="pr">events</span>[] = <span class="pr">$e</span>; }
+}</pre>
+      </div>
+
+      <h3 class="sec-title">Domain Events — Estructura base</h3>
+      <div class="callout info"><span class="callout-icon">💡</span>
+        <div><strong>Todo Domain Event debe tener:</strong> <code>eventId</code> (UUID único), <code>occurredOn</code> (timestamp), y un método <code>eventName()</code>. Son inmutables y representan algo que ya ocurrió.</div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Shared/Domain/Event/DomainEvent.php</span>
+        </div>
+        <pre><span class="kw">abstract class</span> <span class="cl">DomainEvent</span>
+{
+    <span class="kw">private readonly</span> <span class="ph">string</span>             <span class="pr">$eventId</span>;
+    <span class="kw">private readonly</span> \<span class="cl">DateTimeImmutable</span> <span class="pr">$occurredOn</span>;
+
+    <span class="kw">protected function</span> <span class="fn">__construct</span>()
+    {
+        <span class="kw">$this</span>-><span class="pr">eventId</span>    = <span class="cl">Uuid</span>::<span class="fn">generate</span>()-><span class="fn">value</span>();
+        <span class="kw">$this</span>-><span class="pr">occurredOn</span> = <span class="kw">new</span> \<span class="cl">DateTimeImmutable</span>();
+    }
+
+    <span class="kw">public function</span> <span class="fn">eventId</span>(): <span class="ph">string</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">eventId</span>; }
+    <span class="kw">public function</span> <span class="fn">occurredOn</span>(): \<span class="cl">DateTimeImmutable</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">occurredOn</span>; }
+    <span class="kw">abstract public function</span> <span class="fn">eventName</span>(): <span class="ph">string</span>;
+}
+
+<span class="cm">// Evento concreto — inmutable, datos mínimos</span>
+<span class="kw">final class</span> <span class="cl">OrderConfirmed</span> <span class="kw">extends</span> <span class="cl">DomainEvent</span>
+{
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">public readonly</span> <span class="cl">OrderId</span> <span class="pr">$orderId</span>,
+    ) {
+        <span class="kw">parent</span>::<span class="fn">__construct</span>();
+    }
+
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="cl">OrderId</span> <span class="pr">$orderId</span>): <span class="kw">self</span>
+    {
+        <span class="kw">return new self</span>(<span class="pr">$orderId</span>);
+    }
+
+    <span class="kw">public function</span> <span class="fn">eventName</span>(): <span class="ph">string</span>
+    {
+        <span class="kw">return</span> <span class="str">'order.confirmed'</span>;
+    }
 }</pre>
       </div>
 

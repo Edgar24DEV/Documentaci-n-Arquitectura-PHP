@@ -108,6 +108,295 @@
 
     <div class="sep"></div>
 
+    <!-- EXCEPTION HIERARCHY -->
+    <section id="exceptions">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Referencia</div>
+          <h2 class="ch-h2">Jerarquía de<br><span class="ac-r">Excepciones</span></h2>
+          <p class="ch-lead">Excepciones estructuradas por capa con contexto rico para debugging.</p>
+        </div>
+        <div class="ch-badge">Referencia</div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Exception Hierarchy — 3 capas</span>
+        </div>
+        <pre><span class="cm">// ═══ DOMAIN LAYER ═══</span>
+<span class="kw">namespace</span> <span class="cl">App\DDD\Shared\Domain\Exception</span>;
+
+<span class="kw">abstract class</span> <span class="cl">DomainException</span> <span class="kw">extends</span> \<span class="cl">DomainException</span> {}
+
+<span class="kw">final class</span> <span class="cl">EntityNotFoundException</span> <span class="kw">extends</span> <span class="cl">DomainException</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$entity</span>,
+        <span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$id</span>,
+    ) {
+        <span class="kw">parent</span>::<span class="fn">__construct</span>(<span class="str">"{$entity} not found: {$id}"</span>);
+    }
+}
+
+<span class="kw">final class</span> <span class="cl">BusinessRuleViolationException</span> <span class="kw">extends</span> <span class="cl">DomainException</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="ph">string</span> <span class="pr">$rule</span>,
+        <span class="kw">public readonly</span> <span class="ph">array</span> <span class="pr">$context</span> = [],
+    ) {
+        <span class="kw">parent</span>::<span class="fn">__construct</span>(<span class="pr">$rule</span>);
+    }
+}
+
+<span class="kw">final class</span> <span class="cl">InvalidValueObjectException</span> <span class="kw">extends</span> <span class="cl">DomainException</span> {}
+
+<span class="cm">// ═══ APPLICATION LAYER ═══</span>
+<span class="kw">namespace</span> <span class="cl">App\DDD\Shared\Application\Exception</span>;
+
+<span class="kw">abstract class</span> <span class="cl">ApplicationException</span> <span class="kw">extends</span> \<span class="cl">Exception</span> {}
+<span class="kw">final class</span> <span class="cl">UnauthorizedException</span> <span class="kw">extends</span> <span class="cl">ApplicationException</span> {}
+<span class="kw">final class</span> <span class="cl">CommandValidationException</span> <span class="kw">extends</span> <span class="cl">ApplicationException</span> {}
+
+<span class="cm">// ═══ INFRASTRUCTURE LAYER ═══</span>
+<span class="kw">namespace</span> <span class="cl">App\DDD\Shared\Infrastructure\Exception</span>;
+
+<span class="kw">abstract class</span> <span class="cl">InfrastructureException</span> <span class="kw">extends</span> \<span class="cl">Exception</span> {}
+<span class="kw">final class</span> <span class="cl">PersistenceException</span> <span class="kw">extends</span> <span class="cl">InfrastructureException</span> {}
+<span class="kw">final class</span> <span class="cl">ExternalServiceException</span> <span class="kw">extends</span> <span class="cl">InfrastructureException</span> {}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">app/Exceptions/Handler.php — Mapeo HTTP</span>
+        </div>
+        <pre><span class="kw">public function</span> <span class="fn">register</span>(): <span class="ph">void</span>
+{
+    <span class="kw">$this</span>-><span class="fn">renderable</span>(<span class="kw">function</span> (<span class="cl">EntityNotFoundException</span> <span class="pr">$e</span>) {
+        <span class="kw">return</span> <span class="fn">response</span>()-><span class="fn">json</span>([<span class="str">'error'</span> => <span class="pr">$e</span>-><span class="fn">getMessage</span>()], <span class="nm">404</span>);
+    });
+
+    <span class="kw">$this</span>-><span class="fn">renderable</span>(<span class="kw">function</span> (<span class="cl">UnauthorizedException</span> <span class="pr">$e</span>) {
+        <span class="kw">return</span> <span class="fn">response</span>()-><span class="fn">json</span>([<span class="str">'error'</span> => <span class="str">'Forbidden'</span>], <span class="nm">403</span>);
+    });
+
+    <span class="kw">$this</span>-><span class="fn">renderable</span>(<span class="kw">function</span> (<span class="cl">BusinessRuleViolationException</span> <span class="pr">$e</span>) {
+        <span class="kw">return</span> <span class="fn">response</span>()-><span class="fn">json</span>([
+            <span class="str">'error'</span>   => <span class="pr">$e</span>-><span class="fn">getMessage</span>(),
+            <span class="str">'context'</span> => <span class="pr">$e</span>-><span class="pr">context</span>,
+        ], <span class="nm">422</span>);
+    });
+}</pre>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+    <!-- SECURITY -->
+    <section id="security">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Referencia</div>
+          <h2 class="ch-h2">Seguridad<br><span class="ac-y">por Capa</span></h2>
+          <p class="ch-lead">Cada capa tiene responsabilidades de seguridad específicas.</p>
+        </div>
+        <div class="ch-badge">Referencia</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Capa</th>
+              <th>Responsabilidad</th>
+              <th>Herramientas Laravel</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Presentation</strong></td>
+              <td>Autenticación, autorización básica, validación de input</td>
+              <td>Middleware, Policies, FormRequest</td>
+            </tr>
+            <tr>
+              <td><strong>Application</strong></td>
+              <td>Autorización de negocio compleja</td>
+              <td>AuthorizationService, Domain Policies</td>
+            </tr>
+            <tr>
+              <td><strong>Domain</strong></td>
+              <td>Invariantes de negocio (no seguridad)</td>
+              <td>Guards en Aggregates</td>
+            </tr>
+            <tr>
+              <td><strong>Infrastructure</strong></td>
+              <td>Sanitización de datos externos, queries seguros</td>
+              <td>Eloquent bindings, Hash::make()</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn"><span class="callout-icon">⚠️</span>
+        <div><strong>Reglas críticas:</strong><br>
+          • Nunca <code>$guarded = []</code> — siempre define <code>$fillable</code><br>
+          • Nunca <code>env()</code> en código — usa <code>config()</code><br>
+          • Nunca SQL raw con interpolación — usa bindings<br>
+          • Nunca hardcodear secrets en código
+        </div>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+    <!-- ANTI-PATTERNS -->
+    <section id="antipatterns">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Referencia</div>
+          <h2 class="ch-h2">Anti-Patterns<br><span class="ac-r">a Evitar</span></h2>
+          <p class="ch-lead">Errores comunes que rompen la arquitectura.</p>
+        </div>
+        <div class="ch-badge">Referencia</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Anti-Pattern</th>
+              <th>Problema</th>
+              <th>Solución</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Anemic Domain Model</strong></td>
+              <td>Entities son solo getters/setters sin lógica</td>
+              <td>Comportamiento e invariantes dentro de las entidades</td>
+            </tr>
+            <tr>
+              <td><strong>Smart UI</strong></td>
+              <td>Lógica de negocio en Controllers o Views</td>
+              <td>Thin Controllers → Application → Domain</td>
+            </tr>
+            <tr>
+              <td><strong>Leaky Abstraction</strong></td>
+              <td>Domain extiende Eloquent Model</td>
+              <td>Entidades puras; Mapper en Infrastructure</td>
+            </tr>
+            <tr>
+              <td><strong>Service Locator</strong></td>
+              <td><code>app()</code> / <code>resolve()</code> en lógica</td>
+              <td>Constructor injection únicamente</td>
+            </tr>
+            <tr>
+              <td><strong>Primitive Obsession</strong></td>
+              <td>Strings/ints donde deberían ser VOs</td>
+              <td>Modelar conceptos de dominio como Value Objects</td>
+            </tr>
+            <tr>
+              <td><strong>Fat Repository</strong></td>
+              <td>Lógica de negocio en repositorios</td>
+              <td>Repos solo persisten; Domain Services deciden</td>
+            </tr>
+            <tr>
+              <td><strong>God Command</strong></td>
+              <td>Un Command hace 5 cosas diferentes</td>
+              <td>Un Command = una operación atómica</td>
+            </tr>
+            <tr>
+              <td><strong>Mixed CQRS</strong></td>
+              <td>Query Handler modifica estado</td>
+              <td>Separación estricta: queries son read-only</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
+    <!-- NAMING CONVENTIONS -->
+    <section id="naming">
+      <div class="ch-header">
+        <div>
+          <div class="ch-meta">Referencia</div>
+          <h2 class="ch-h2">Convenciones<br><span class="ac-b">de Naming</span></h2>
+          <p class="ch-lead">Nomenclatura consistente en todo el proyecto.</p>
+        </div>
+        <div class="ch-badge">Referencia</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Convención</th>
+              <th>Ejemplo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Interface</strong></td>
+              <td>Sufijo <code>Interface</code></td>
+              <td><code>OrderRepositoryInterface</code>, <code>EventDispatcherInterface</code></td>
+            </tr>
+            <tr>
+              <td><strong>Domain Event</strong></td>
+              <td>Pasado, sustantivo+participio</td>
+              <td><code>OrderCreated</code>, <code>OrderConfirmed</code>, <code>UserRegistered</code></td>
+            </tr>
+            <tr>
+              <td><strong>Command</strong></td>
+              <td>Verbo+sustantivo + <code>Command</code></td>
+              <td><code>PlaceOrderCommand</code>, <code>ConfirmOrderCommand</code></td>
+            </tr>
+            <tr>
+              <td><strong>Query</strong></td>
+              <td>Get/Find+sustantivo + <code>Query</code></td>
+              <td><code>GetOrderQuery</code>, <code>FindOrdersByCustomerQuery</code></td>
+            </tr>
+            <tr>
+              <td><strong>Handler</strong></td>
+              <td>Mismo nombre que Command/Query + <code>Handler</code></td>
+              <td><code>PlaceOrderHandler</code>, <code>GetOrderHandler</code></td>
+            </tr>
+            <tr>
+              <td><strong>Domain Service</strong></td>
+              <td>Sustantivo descriptivo + <code>Service</code> o verbo (Creator/Updater)</td>
+              <td><code>OrderCreator</code>, <code>OrderPricingService</code></td>
+            </tr>
+            <tr>
+              <td><strong>Guard</strong></td>
+              <td>Condición</td>
+              <td><code>isEditable()</code>, <code>hasItems()</code></td>
+            </tr>
+            <tr>
+              <td><strong>VO getter</strong></td>
+              <td>Prefijo <code>get</code></td>
+              <td><code>getCents()</code>, <code>getCurrency()</code></td>
+            </tr>
+            <tr>
+              <td><strong>Response/DTO</strong></td>
+              <td>Nombre descriptivo + <code>Response</code></td>
+              <td><code>OrderSummaryResponse</code>, <code>CustomerProfileResponse</code></td>
+            </tr>
+            <tr>
+              <td><strong>Repository (interface)</strong></td>
+              <td>Aggregate + <code>RepositoryInterface</code></td>
+              <td><code>OrderRepositoryInterface</code></td>
+            </tr>
+            <tr>
+              <td><strong>Repository (impl)</strong></td>
+              <td>Tecnología + Aggregate + <code>Repository</code></td>
+              <td><code>EloquentOrderRepository</code>, <code>InMemoryOrderRepository</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="sep"></div>
+
     <!-- ROADMAP -->
     <section id="roadmap">
       <div class="ch-header">
@@ -224,9 +513,6 @@
         </div>
       </div>
     </section>
-
-  </div>
-
 
   </div>
   <div class="pager"><a class="pager-btn" href="cap6.html">← Cap 06 · Testing</a><span></span></div>

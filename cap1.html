@@ -110,6 +110,9 @@
       </div>
 
       <h3 class="sec-title">Funciones pequeñas, un nivel de abstracción</h3>
+      <div class="callout info"><span class="callout-icon">💡</span>
+        <div><strong>Naming en DDD/PHP 8.3:</strong> los Value Objects usan <code>dddGet*()</code> como prefijo de getters para claridad en contexto DDD. Los guards de invariantes usan <code>guard*()</code>. Los métodos de Domain Events usan <code>eventName()</code>. Las interfaces llevan el sufijo <code>Interface</code>. Consistencia total en todo el proyecto.</div>
+      </div>
       <div class="prose">
         <p>Una función debe hacer <strong>una cosa</strong>. Si necesitas escribir "y" para describirla, está haciendo
           demasiado. Todo el código dentro de una función debe estar en el mismo nivel de abstracción.</p>

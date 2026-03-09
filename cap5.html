@@ -219,7 +219,7 @@
               <div class="dot"></div>
               <div class="dot"></div><span class="code-fname">Infrastructure/Console/PlaceTestOrderCommand.php</span>
             </div>
-            <pre><span class="cm">// Artisan: mismo PlaceOrderCommand, los strings van directo al constructor</span>
+            <pre><span class="cm">// Artisan: mismo PlaceOrderCommand::create() — primitivos al método estático</span>
 <span class="kw">class</span> <span class="cl">PlaceTestOrderCommand</span> <span class="kw">extends</span> <span class="cl">Command</span>
 {
     <span class="kw">protected</span> <span class="pr">$signature</span> = <span class="str">'order:place-test {customerId} {--currency=EUR}'</span>;
@@ -334,7 +334,7 @@
         );
 
         <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">save</span>(<span class="pr">$order</span>);
-        <span class="fn">array_map</span>(<span class="kw">fn</span>(<span class="pr">$e</span>) => <span class="kw">$this</span>-><span class="pr">events</span>-><span class="fn">dispatch</span>(<span class="pr">$e</span>), <span class="pr">$order</span>-><span class="fn">pullEvents</span>());
+        <span class="fn">array_map</span>(<span class="kw">fn</span>(<span class="pr">$e</span>) => <span class="kw">$this</span>-><span class="pr">events</span>-><span class="fn">dispatch</span>(<span class="pr">$e</span>), <span class="pr">$order</span>-><span class="fn">pullDomainEvents</span>());
 
         <span class="kw">return</span> <span class="pr">$order</span>-><span class="pr">id</span>;
     }
@@ -342,14 +342,16 @@
 
 <span class="kw">final class</span> <span class="cl">ConfirmOrderCommand</span>
 {
-    <span class="kw">private</span> <span class="cl">OrderId</span> <span class="pr">$orderId</span>;
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">private readonly</span> <span class="cl">OrderId</span> <span class="pr">$orderId</span>,
+    ) {}
 
-    <span class="kw">public function</span> <span class="fn">__construct</span>(<span class="ph">string</span> <span class="pr">$orderId</span>)
+    <span class="kw">public static function</span> <span class="fn">create</span>(<span class="ph">string</span> <span class="pr">$orderId</span>): <span class="kw">self</span>
     {
-        <span class="kw">$this</span>-><span class="pr">orderId</span> = <span class="cl">OrderId</span>::<span class="fn">create</span>(<span class="pr">$orderId</span>);  <span class="cm">// VO construido aquí</span>
+        <span class="kw">return new self</span>(<span class="cl">OrderId</span>::<span class="fn">create</span>(<span class="pr">$orderId</span>));  <span class="cm">// VO construido aquí</span>
     }
 
-    <span class="kw">public function</span> <span class="fn">orderId</span>(): <span class="cl">OrderId</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">orderId</span>; }
+    <span class="kw">public function</span> <span class="fn">dddGetOrderId</span>(): <span class="cl">OrderId</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">orderId</span>; }
 }
 
 <span class="kw">final class</span> <span class="cl">ConfirmOrderHandler</span>
@@ -361,14 +363,14 @@
 
     <span class="kw">public function</span> <span class="fn">handle</span>(<span class="cl">ConfirmOrderCommand</span> <span class="pr">$cmd</span>): <span class="ph">void</span>
     {
-        <span class="cm">// $cmd->orderId() ya ES un OrderId — el Command lo construyó</span>
-        <span class="pr">$order</span> = <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">findById</span>(<span class="pr">$cmd</span>-><span class="fn">orderId</span>())
-            ?? <span class="kw">throw new</span> <span class="cl">OrderNotFound</span>(<span class="pr">$cmd</span>-><span class="fn">orderId</span>());
+        <span class="cm">// $cmd->dddGetOrderId() ya ES un OrderId — el Command lo construyó</span>
+        <span class="pr">$order</span> = <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">findById</span>(<span class="pr">$cmd</span>-><span class="fn">dddGetOrderId</span>())
+            ?? <span class="kw">throw new</span> <span class="cl">OrderNotFound</span>(<span class="pr">$cmd</span>-><span class="fn">dddGetOrderId</span>());
 
         <span class="pr">$order</span>-><span class="fn">confirm</span>();
 
         <span class="kw">$this</span>-><span class="pr">orders</span>-><span class="fn">save</span>(<span class="pr">$order</span>);
-        <span class="fn">array_map</span>(<span class="kw">fn</span>(<span class="pr">$e</span>) => <span class="kw">$this</span>-><span class="pr">events</span>-><span class="fn">dispatch</span>(<span class="pr">$e</span>), <span class="pr">$order</span>-><span class="fn">pullEvents</span>());
+        <span class="fn">array_map</span>(<span class="kw">fn</span>(<span class="pr">$e</span>) => <span class="kw">$this</span>-><span class="pr">events</span>-><span class="fn">dispatch</span>(<span class="pr">$e</span>), <span class="pr">$order</span>-><span class="fn">pullDomainEvents</span>());
     }
 }</pre>
       </div>
@@ -432,11 +434,62 @@
 }
 
 <span class="cm">// Querier: interface en Application, implementación en Infra</span>
-<span class="kw">interface</span> <span class="cl">OrderQuerier</span>
+<span class="kw">interface</span> <span class="cl">OrderQuerierInterface</span>
 {
-    <span class="kw">public function</span> <span class="fn">getSummary</span>(<span class="cl">OrderId</span> <span class="pr">$id</span>): <span class="cl">OrderSummaryDTO</span>;
-    <span class="cm">/** @return OrderSummaryDTO[] */</span>
+    <span class="kw">public function</span> <span class="fn">getSummary</span>(<span class="cl">OrderId</span> <span class="pr">$id</span>): <span class="cl">OrderSummaryResponse</span>;
+    <span class="cm">/** @return OrderSummaryResponse[] */</span>
     <span class="kw">public function</span> <span class="fn">findByCustomer</span>(<span class="cl">CustomerId</span> <span class="pr">$id</span>): <span class="ph">array</span>;
+}</pre>
+      </div>
+
+      <h3 class="sec-title">Response Objects — DTOs inmutables</h3>
+      <div class="callout info"><span class="callout-icon">💡</span>
+        <div><strong>Nunca devuelvas entidades de dominio a la capa de presentación.</strong> Los Response Objects son DTOs inmutables que se crean con <code>::fromDomain()</code> y se serializan con <code>toArray()</code>.</div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Order/Application/Response/OrderSummaryResponse.php</span>
+        </div>
+        <pre><span class="kw">final class</span> <span class="cl">OrderSummaryResponse</span>
+{
+    <span class="kw">private function</span> <span class="fn">__construct</span>(
+        <span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$id</span>,
+        <span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$customerId</span>,
+        <span class="kw">public readonly</span> <span class="ph">int</span>    <span class="pr">$totalCents</span>,
+        <span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$currency</span>,
+        <span class="kw">public readonly</span> <span class="ph">string</span> <span class="pr">$status</span>,
+        <span class="kw">public readonly</span> <span class="ph">int</span>    <span class="pr">$itemCount</span>,
+    ) {}
+
+    <span class="cm">// Factory desde dominio — única forma de crear</span>
+    <span class="kw">public static function</span> <span class="fn">fromDomain</span>(<span class="cl">Order</span> <span class="pr">$order</span>): <span class="kw">self</span>
+    {
+        <span class="kw">return new self</span>(
+            id:         <span class="pr">$order</span>-><span class="fn">dddGetId</span>()-><span class="fn">value</span>(),
+            customerId: <span class="pr">$order</span>-><span class="fn">dddGetCustomerId</span>()-><span class="fn">value</span>(),
+            totalCents: <span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">cents</span>(),
+            currency:   <span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">currency</span>(),
+            status:     <span class="pr">$order</span>-><span class="fn">dddGetStatus</span>()-><span class="fn">value</span>(),
+            itemCount:  <span class="pr">$order</span>-><span class="fn">itemCount</span>(),
+        );
+    }
+
+    <span class="cm">// Serialización para JSON responses</span>
+    <span class="kw">public function</span> <span class="fn">toArray</span>(): <span class="ph">array</span>
+    {
+        <span class="kw">return</span> [
+            <span class="str">'id'</span>          => <span class="kw">$this</span>-><span class="pr">id</span>,
+            <span class="str">'customer_id'</span> => <span class="kw">$this</span>-><span class="pr">customerId</span>,
+            <span class="str">'total'</span>       => [
+                <span class="str">'cents'</span>    => <span class="kw">$this</span>-><span class="pr">totalCents</span>,
+                <span class="str">'currency'</span> => <span class="kw">$this</span>-><span class="pr">currency</span>,
+            ],
+            <span class="str">'status'</span>      => <span class="kw">$this</span>-><span class="pr">status</span>,
+            <span class="str">'item_count'</span>  => <span class="kw">$this</span>-><span class="pr">itemCount</span>,
+        ];
+    }
 }</pre>
       </div>
 
@@ -528,14 +581,6 @@
   </footer>
 <script src="shared.js"></script>
 <script>
-// ════ TABS ════
-    function tab(btn, id) {
-      btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
-      btn.classList.add('on');
-      btn.closest('.tabs').querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
-      document.getElementById(id).classList.add('on');
-    }
-
 // ════ EX5 — ARCHITECTURE DEBUG — reuses toggleOpt/checkMulti/resetMulti ════
 
 function resetPageExercises() {

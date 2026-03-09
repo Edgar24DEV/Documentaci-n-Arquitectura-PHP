@@ -83,6 +83,38 @@
         </div>
       </div>
 
+      <h3 class="sec-title">Convenciones de naming en tests</h3>
+      <div class="callout info"><span class="callout-icon">📋</span>
+        <div><strong>Pest (recomendado):</strong> <code>it('does something when condition', fn() => ...)</code> — legible como especificación.<br>
+          <strong>PHPUnit clásico:</strong> el método debe empezar por <code>test</code> o llevar la anotación <code>/** @test */</code>. Convención: <code>test_it_throws_when_product_not_found()</code>.<br>
+          <strong>Regla de oro:</strong> el nombre del test describe el comportamiento esperado, no la implementación. <em>Nunca</em> nombres como <code>testMethod1()</code> o <code>testOrder()</code>.
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-bar">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div><span class="code-fname">Equivalencia Pest ↔ PHPUnit</span>
+        </div>
+        <pre><span class="cm">// ✅ Pest — recomendado: legible como especificación</span>
+<span class="fn">it</span>(<span class="str">'throws when product is not found'</span>, <span class="kw">function</span> () {
+    <span class="fn">expect</span>(<span class="kw">fn</span>() => <span class="kw">$this</span>-><span class="pr">handler</span>-><span class="fn">handle</span>(<span class="cl">PlaceOrderCommandMother</span>::<span class="fn">random</span>()))
+        -><span class="fn">toThrow</span>(<span class="cl">ProductNotFound</span>::<span class="kw">class</span>);
+});
+
+<span class="cm">// ✅ PHPUnit equivalente — prefijo test_ o @test</span>
+<span class="cm">/** @test */</span>
+<span class="kw">public function</span> <span class="fn">it_throws_when_product_is_not_found</span>(): <span class="ph">void</span>
+{
+    <span class="kw">$this</span>-><span class="fn">expectException</span>(<span class="cl">ProductNotFound</span>::<span class="kw">class</span>);
+    <span class="kw">$this</span>-><span class="pr">handler</span>-><span class="fn">handle</span>(<span class="cl">PlaceOrderCommandMother</span>::<span class="fn">random</span>());
+}
+
+<span class="cm">// ❌ Mal — no describe el comportamiento esperado</span>
+<span class="kw">public function</span> <span class="fn">testOrder</span>(): <span class="ph">void</span> { }
+<span class="kw">public function</span> <span class="fn">testMethod1</span>(): <span class="ph">void</span> { }</pre>
+      </div>
+
       <h3 class="sec-title">Unit Test — dominio puro (sin framework)</h3>
       <div class="prose">
         <p>Los tests de dominio son los más valiosos. Prueban las invariantes del negocio directamente, en
@@ -100,7 +132,7 @@
         <span class="cl">Currency</span>::<span class="fn">create</span>(<span class="str">'EUR'</span>),
     );
 
-    <span class="pr">$product</span> = <span class="cl">ProductMother</span>::<span class="fn">withPrice</span>(<span class="cl">Money</span>::<span class="fn">of</span>(<span class="nm">1000</span>, <span class="str">'EUR'</span>));  <span class="cm">// 10€</span>
+    <span class="pr">$product</span> = <span class="cl">ProductMother</span>::<span class="fn">withPrice</span>(<span class="cl">Money</span>::<span class="fn">create</span>(<span class="nm">1000</span>, <span class="str">'EUR'</span>));  <span class="cm">// 10€</span>
     <span class="pr">$order</span>-><span class="fn">addItem</span>(<span class="pr">$product</span>, <span class="cl">Quantity</span>::<span class="fn">create</span>(<span class="nm">3</span>));
 
     <span class="fn">expect</span>(<span class="pr">$order</span>-><span class="fn">total</span>()-><span class="fn">dddGetCents</span>())->toBe(<span class="nm">3000</span>)
@@ -118,7 +150,7 @@
     <span class="pr">$order</span> = <span class="cl">OrderMother</span>::<span class="fn">pendingWithItems</span>();
     <span class="pr">$order</span>-><span class="fn">confirm</span>();
 
-    <span class="pr">$events</span> = <span class="pr">$order</span>-><span class="fn">pullEvents</span>();
+    <span class="pr">$events</span> = <span class="pr">$order</span>-><span class="fn">pullDomainEvents</span>();
     <span class="fn">expect</span>(<span class="pr">$events</span>)-><span class="fn">toHaveCount</span>(<span class="nm">2</span>)  <span class="cm">// OrderCreated + OrderConfirmed</span>
          -><span class="fn">and</span>(<span class="pr">$events</span>[<span class="nm">1</span>])-><span class="fn">toBeInstanceOf</span>(<span class="cl">OrderConfirmed</span>::<span class="kw">class</span>);
 });</pre>
@@ -144,7 +176,7 @@
     <span class="pr">$orders</span>   = <span class="kw">new</span> <span class="cl">InMemoryOrderRepository</span>();
     <span class="pr">$products</span> = <span class="kw">new</span> <span class="cl">InMemoryProductRepository</span>();
     <span class="pr">$events</span>   = <span class="kw">new</span> <span class="cl">SpyEventDispatcher</span>();
-    <span class="pr">$product</span>  = <span class="cl">ProductMother</span>::<span class="fn">withPrice</span>(<span class="cl">Money</span>::<span class="fn">of</span>(<span class="nm">2000</span>, <span class="str">'EUR'</span>));
+    <span class="pr">$product</span>  = <span class="cl">ProductMother</span>::<span class="fn">withPrice</span>(<span class="cl">Money</span>::<span class="fn">create</span>(<span class="nm">2000</span>, <span class="str">'EUR'</span>));
     <span class="pr">$products</span>-><span class="fn">save</span>(<span class="pr">$product</span>);
 
     <span class="pr">$handler</span> = <span class="kw">new</span> <span class="cl">PlaceOrderHandler</span>(<span class="pr">$orders</span>, <span class="pr">$products</span>, <span class="pr">$events</span>);

@@ -44,6 +44,13 @@ function setActiveNav() {
   });
 }
 
+// ════ TAB SWITCHING ════
+function tab(btn, id) {
+  btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  btn.closest('.tabs').querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
 
 // ════ THEME TOGGLE ════
 const THEME_KEY = 'arq_php_theme';
@@ -67,41 +74,7 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', saved);
 })();
 
-// ════ TAB SWITCHER ════
-function tab(btn, targetId) {
-  // Encuentra el contenedor padre de tabs
-  const container = btn.closest('.tabs') || btn.parentElement;
-  
-  // Desactiva todos los botones del grupo
-  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
-  
-  // Activa el botón pulsado
-  btn.classList.add('on');
-  
-  // Oculta todos los paneles hermanos del target
-  const panel = document.getElementById(targetId);
-  if (!panel) return;
-  
-  // Busca el contenedor de paneles (hermano del contenedor de botones)
-  const allPanels = panel.parentElement.querySelectorAll(':scope > [id]');
-  allPanels.forEach(p => p.style.display = 'none');
-  
-  // Muestra el panel seleccionado
-  panel.style.display = 'block';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-
-  // Inicializa todos los tab groups: oculta paneles no activos
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    const targetId = btn.getAttribute('onclick').match(/tab\(this,'(.+?)'\)/)?.[1];
-    if (targetId) {
-      const panel = document.getElementById(targetId);
-      if (panel && !btn.classList.contains('on')) {
-        panel.style.display = 'none';
-      }
-    }
-  });
   renderScore();
   setActiveNav();
   // sync toggle icon with current theme
