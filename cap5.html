@@ -101,8 +101,8 @@
         <span class="kw">private readonly</span> <span class="ph">string</span> <span class="pr">$currency</span>,
     ) {}
 
-    <span class="kw">public function</span> <span class="fn">dddGetCents</span>(): <span class="ph">int</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">cents</span>; }
-    <span class="kw">public function</span> <span class="fn">dddGetCurrency</span>(): <span class="ph">string</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">currency</span>; }
+    <span class="kw">public function</span> <span class="fn">getCents</span>(): <span class="ph">int</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">cents</span>; }
+    <span class="kw">public function</span> <span class="fn">getCurrency</span>(): <span class="ph">string</span> { <span class="kw">return</span> <span class="kw">$this</span>-><span class="pr">currency</span>; }
 
     <span class="cm">// Única puerta de entrada — valida antes de construir</span>
     <span class="kw">public static function</span> <span class="fn">create</span>(<span class="ph">int</span> <span class="pr">$cents</span>, <span class="ph">string</span> <span class="pr">$currency</span>): <span class="kw">self</span>
@@ -122,10 +122,10 @@
 
     <span class="kw">public function</span> <span class="fn">add</span>(<span class="cl">Money</span> <span class="pr">$other</span>): <span class="kw">self</span>
     {
-        <span class="kw">if</span> (<span class="kw">$this</span>-><span class="pr">currency</span> !== <span class="pr">$other</span>-><span class="fn">dddGetCurrency</span>())
+        <span class="kw">if</span> (<span class="kw">$this</span>-><span class="pr">currency</span> !== <span class="pr">$other</span>-><span class="fn">getCurrency</span>())
             <span class="kw">throw new</span> <span class="cl">InvalidArgumentException</span>(<span class="str">'No se pueden sumar monedas distintas'</span>);
 
-        <span class="kw">return self</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">cents</span> + <span class="pr">$other</span>-><span class="fn">dddGetCents</span>(), <span class="kw">$this</span>-><span class="pr">currency</span>);
+        <span class="kw">return self</span>::<span class="fn">create</span>(<span class="kw">$this</span>-><span class="pr">cents</span> + <span class="pr">$other</span>-><span class="fn">getCents</span>(), <span class="kw">$this</span>-><span class="pr">currency</span>);
     }
 
     <span class="kw">public function</span> <span class="fn">applyDiscount</span>(<span class="ph">float</span> <span class="pr">$rate</span>): <span class="kw">self</span>
